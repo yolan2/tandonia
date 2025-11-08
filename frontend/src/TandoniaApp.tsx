@@ -693,138 +693,88 @@ const ChecklistPage = ({ user }: any) => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">Submit Checklist</h1>
-      
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-          {selectedGrid ? 'Add Locations' : 'Step 1: Select Grid Cell'}
-        </h2>
-        <Map 
-          onGridSelect={handleGridSelect} 
-          selectedGrid={selectedGrid}
-          onLocationSelect={handleLocationSelect}
-          mode={locationMode}
-        />
-      </div>
+      <h1 className="title is-3 has-text-weight-bold mb-4">Submit Checklist</h1>
+      <p className="help-note mb-4">Follow the steps: pick a grid cell, add habitat locations on the map, then record species counts.</p>
 
-      {selectedGrid && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800">Step 2: Add Habitat Locations</h3>
-          <p className="text-gray-600 mb-4">Click on the map to add location markers for each habitat type</p>
-          
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <button
-              onClick={() => setLocationMode('forest')}
-              disabled={locations.forest}
-              className={`p-4 rounded-lg border-2 ${
-                locations.forest 
-                  ? 'bg-green-100 border-green-600' 
-                  : 'border-gray-300 hover:border-green-600'
-              } ${locationMode === 'forest' ? 'ring-2 ring-green-600' : ''}`}
-            >
-              <div className="font-semibold">Forest</div>
-              {locations.forest && <div className="text-sm text-green-600">✓ Added</div>}
-            </button>
-            
-            <button
-              onClick={() => setLocationMode('swamp')}
-              disabled={locations.swamp}
-              className={`p-4 rounded-lg border-2 ${
-                locations.swamp 
-                  ? 'bg-blue-100 border-blue-600' 
-                  : 'border-gray-300 hover:border-blue-600'
-              } ${locationMode === 'swamp' ? 'ring-2 ring-blue-600' : ''}`}
-            >
-              <div className="font-semibold">Swamp</div>
-              {locations.swamp && <div className="text-sm text-blue-600">✓ Added</div>}
-            </button>
-            
-            <button
-              onClick={() => setLocationMode('anthropogenous')}
-              disabled={locations.anthropogenous}
-              className={`p-4 rounded-lg border-2 ${
-                locations.anthropogenous 
-                  ? 'bg-red-100 border-red-600' 
-                  : 'border-gray-300 hover:border-red-600'
-              } ${locationMode === 'anthropogenous' ? 'ring-2 ring-red-600' : ''}`}
-            >
-              <div className="font-semibold">Anthropogenous</div>
-              {locations.anthropogenous && <div className="text-sm text-red-600">✓ Added</div>}
-            </button>
-          </div>
+      <div className="checklist-container">
+        <div className="checklist-left">
+          <div className="map-card">
+            <h3 className="is-size-5 has-text-weight-semibold mb-3">{selectedGrid ? 'Add Locations' : 'Step 1: Select Grid Cell'}</h3>
+            <Map 
+              onGridSelect={handleGridSelect} 
+              selectedGrid={selectedGrid}
+              onLocationSelect={handleLocationSelect}
+              mode={locationMode}
+            />
 
-          <div>
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Step 3: Species Abundance</h3>
-            
-            {loading ? (
-              <div className="text-center py-8 text-gray-600">Loading species...</div>
-            ) : (
-              <div>
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Zoek op Nederlandse of Latijnse naam..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  />
-                  <p className="text-sm text-gray-500 mt-2">
-                    {filteredSpecies.length} van {speciesList.length} soorten getoond
-                    {searchTerm && ` (gefilterd op "${searchTerm}")`}
-                  </p>
+            {selectedGrid && (
+              <div style={{ marginTop: 10 }}>
+                <div className="mb-3">
+                  <strong>Selected grid:</strong> {selectedGrid}
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-lg">
-                  {filteredSpecies.length === 0 ? (
-                    <div className="col-span-2 text-center py-8 text-gray-500">
-                      Geen soorten gevonden voor "{searchTerm}"
-                    </div>
-                  ) : (
-                    filteredSpecies.map((sp) => {
-                      return (
-                        <div key={sp.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-green-500 transition">
-                          <div className="flex-1">
-                            <div className="text-sm font-semibold text-gray-800">{sp.dutch_name}</div>
-                            <div className="text-xs text-gray-500 italic">{sp.scientific_name}</div>
-                            <div className="text-xs text-gray-400 mt-1">{sp.observation_count} waarnemingen</div>
-                          </div>
-                          <input
-                            type="number"
-                            min="0"
-                            value={species[sp.id] || 0}
-                            onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))}
-                            className="w-20 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-center font-semibold"
-                          />
-                        </div>
-                      );
-                    })
-                  )}
+
+                <div className="habitat-buttons">
+                  <div className="buttons">
+                    <button className={`button is-outlined ${locations.forest ? 'is-success' : ''}`} onClick={() => setLocationMode('forest')} disabled={locations.forest}>Forest {locations.forest && '✓'}</button>
+                    <button className={`button is-outlined ${locations.swamp ? 'is-info' : ''}`} onClick={() => setLocationMode('swamp')} disabled={locations.swamp}>Swamp {locations.swamp && '✓'}</button>
+                    <button className={`button is-outlined ${locations.anthropogenous ? 'is-danger' : ''}`} onClick={() => setLocationMode('anthropogenous')} disabled={locations.anthropogenous}>Anthropogenous {locations.anthropogenous && '✓'}</button>
+                  </div>
                 </div>
+
+                <p className="help-note mt-3">Click on the map to add locations for the selected habitat type.</p>
               </div>
             )}
-
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">
-                Time Spent (minutes)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={timeSpent}
-                onChange={(e) => setTimeSpent(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
-              />
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold"
-            >
-              Submit Checklist
-            </button>
           </div>
         </div>
-      )}
+
+        <div className="checklist-right">
+          <div className="box">
+            <h3 className="is-size-5 has-text-weight-semibold mb-3">Step 2: Species Abundance</h3>
+            {loading ? (
+              <div className="has-text-centered py-6">Loading species...</div>
+            ) : (
+              <>
+                <div className="field">
+                  <div className="control">
+                    <input className="input" type="text" placeholder="Zoek op Nederlandse of Latijnse naam..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  </div>
+                  <p className="help-note mt-2">{filteredSpecies.length} van {speciesList.length} soorten getoond {searchTerm && ` (gefilterd op "${searchTerm}")`}</p>
+                </div>
+
+                <div className="species-list box">
+                  {filteredSpecies.length === 0 ? (
+                    <div className="has-text-centered py-4">Geen soorten gevonden voor "{searchTerm}"</div>
+                  ) : (
+                    filteredSpecies.map((sp) => (
+                      <div key={sp.id} className="species-item">
+                        <div>
+                          <div className="name">{sp.dutch_name}</div>
+                          <div className="is-size-7 has-text-grey">{sp.scientific_name} · {sp.observation_count} waarnemingen</div>
+                        </div>
+                        <div>
+                          <input className="input" type="number" min="0" value={species[sp.id] || 0} onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))} />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="field mt-4">
+                  <label className="label">Time Spent (minutes)</label>
+                  <div className="control">
+                    <input className="input" type="number" min="1" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="submit-row">
+                  <button className="button is-primary is-medium" onClick={handleSubmit}>Submit Checklist</button>
+                  <div className="help-note">Make sure you added at least one location and filled species counts as needed.</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
