@@ -40,18 +40,33 @@ const useAuth = () => {
       return;
     }
 
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Check current session (handle errors so UI doesn't remain stuck)
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      })
+      .catch((err: any) => {
+        console.error('supabase.getSession error', err);
+        setLoading(false);
+      });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      setUser(session?.user ?? null);
-    });
+    let subscription: any = null;
+    try {
+      const res = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+        setUser(session?.user ?? null);
+      });
+      subscription = res?.data?.subscription;
+    } catch (err) {
+      console.error('supabase.onAuthStateChange error', err);
+    }
 
-    return () => subscription.unsubscribe();
+    return () => {
+      try {
+        subscription?.unsubscribe?.();
+      } catch (_) {}
+    };
   }, []);
   
   const login = async (email: string, password: string) => {
