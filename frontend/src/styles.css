@@ -108,12 +108,32 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 .stat .label { font-size: 0.9rem; color: var(--color-muted); }
 
 /* Bulma overrides to apply the theme */
-.navbar.is-primary { background-color: var(--color-primary) !important; background-image: none !important; }
+.navbar.is-primary { background-color: var(--color-accent) !important; background-image: none !important; }
 .navbar.is-primary .navbar-item,
 .navbar.is-primary .navbar-link { color: #fff !important; }
+/* Keep items transparent (no filled background) and only color the bar */
+.navbar.is-primary .navbar-item {
+	background: transparent !important;
+}
 .button.is-primary { background-color: var(--color-primary); border-color: var(--color-primary); color: #fff }
 .button.is-primary:hover { background-color: var(--color-primary-600); border-color: var(--color-primary-600) }
 .tag.is-light { background: linear-gradient(180deg, #fff, #fbfdff); color: var(--color-text) }
+
+/* Navbar controls: language select and login button should match (neutral grey/white) */
+.navbar .select select {
+	background: #ffffff;
+	border: 1px solid rgba(11,37,69,0.08);
+	color: var(--color-text);
+}
+.navbar .button.is-link {
+	background: linear-gradient(180deg,#ffffff,#fbfdff);
+	border: 1px solid rgba(11,37,69,0.08);
+	color: var(--color-text);
+	box-shadow: none;
+}
+.navbar .button.is-link:hover {
+	background: linear-gradient(180deg,#fbfbfb,#f5f5f5);
+}
 
 /* Checklist page styles */
 .checklist-container { display: flex; gap: 1.5rem; align-items: flex-start; }
