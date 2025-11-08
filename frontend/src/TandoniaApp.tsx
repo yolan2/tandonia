@@ -243,7 +243,7 @@ const NewsPage = () => {
 
             {item.image_url && (
               <figure>
-                <img src={item.image_url} alt={item.title} className="timeline-image" />
+                <img src={item.image_url} alt={item.title} style={{ maxWidth: '100%', maxHeight: '320px', width: 'auto', height: 'auto', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.75rem' }} />
                 {(item.author || item.license) && (
                   <figcaption className="is-size-7 has-text-grey mt-2">
                     {item.author ? t('news.by', { author: item.author }) : null}
@@ -257,9 +257,7 @@ const NewsPage = () => {
             <h3 className="timeline-title">{item.title}</h3>
             <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content || item.body || item.excerpt}</p>
 
-            <div style={{ marginTop: 10 }}>
-              <button className="button is-small is-outlined is-primary">{t('news.read_more')}</button>
-            </div>
+            {/* Removed 'Lees meer' button as requested */}
           </article>
         ))}
       </div>
@@ -704,6 +702,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
 };
 
 const ChecklistPage = ({ user }: any) => {
+  const { t } = useTranslation();
   const [selectedGrid, setSelectedGrid] = useState<any>(null);
   const [gridBounds, setGridBounds] = useState<any>(null);
   const [locationMode, setLocationMode] = useState<any>(null);
