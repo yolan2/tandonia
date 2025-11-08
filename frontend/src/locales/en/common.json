@@ -10,7 +10,7 @@
   },
   "news": {
     "title": "Tandonia News",
-    "subtitle": "Updates, features and project milestones — presented as a clean timeline.",
+    "subtitle": "Updates, features and project milestones.",
     "read_more": "Read more"
   },
   "contact": {
@@ -20,6 +20,11 @@
   },
   "about": {
     "title": "About Tandonia",
+    "stats": {
+      "checklists": "Checklists",
+      "visited_grid_cells": "Visited grid cells",
+      "coverage": "Coverage"
+    },
     "overview": "The Tandonia project aims to monitor and document slug and snail populations across Belgium.",
     "how_it_works": "Volunteers select a grid cell on the map and record observations from three habitat types: forest, swamp and anthropogenous areas.",
     "get_involved": "Create an account and start submitting checklists!"

@@ -232,6 +232,31 @@ const NewsPage = () => {
 
 const AboutPage = () => {
   const { t } = useTranslation();
+  const [stats, setStats] = useState({ checklists: null, visited_grid_cells: null, total_grid_cells: null });
+
+  useEffect(() => {
+    let mounted = true;
+    // Attempt to fetch aggregated stats from the API. Endpoint is best-effort — if absent we'll keep placeholders.
+    fetch(`${API_BASE}/api/stats/summary`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        return res.json();
+      })
+      .then((data) => {
+        if (!mounted) return;
+        setStats({
+          checklists: data.checklists ?? 0,
+          visited_grid_cells: data.visited_grid_cells ?? 0,
+          total_grid_cells: data.total_grid_cells ?? 0
+        });
+      })
+      .catch((err) => {
+        // Silent fallback — show placeholders in the UI
+        console.warn('Could not load stats from API:', err?.message || err);
+      });
+
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -264,47 +289,26 @@ const AboutPage = () => {
           <div className="column">
             <div className="stats-grid">
               <div className="stat">
-                <div className="value">1.2k</div>
-                <div className="label">Observations</div>
+                <div className="value">{stats.checklists !== null ? stats.checklists : '—'}</div>
+                <div className="label">{t('about.stats.checklists')}</div>
               </div>
+
               <div className="stat">
-                <div className="value">320</div>
-                <div className="label">Contributors</div>
+                <div className="value">{stats.visited_grid_cells !== null ? stats.visited_grid_cells : '—'}</div>
+                <div className="label">{t('about.stats.visited_grid_cells')}</div>
               </div>
+
               <div className="stat">
-                <div className="value">10x10 km</div>
-                <div className="label">Grid resolution</div>
+                <div className="value">
+                  {stats.total_grid_cells ? `${Math.round(((stats.visited_grid_cells || 0) / stats.total_grid_cells) * 100)}%` : '—'}
+                </div>
+                <div className="label">{t('about.stats.coverage')}</div>
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      <section>
-        <h2 className="title is-4">What we track</h2>
-        <div className="columns is-multiline">
-          <div className="column is-4">
-            <div className="feature-card">
-              <h3 className="is-size-5 has-text-weight-semibold">Species Diversity</h3>
-              <p className="is-size-7">We record a broad set of species, with taxonomy and optional photos.</p>
-            </div>
-          </div>
-
-          <div className="column is-4">
-            <div className="feature-card">
-              <h3 className="is-size-5 has-text-weight-semibold">Habitat Data</h3>
-              <p className="is-size-7">Each checklist includes habitat types and geolocated points so we can monitor trends per habitat.</p>
-            </div>
-          </div>
-
-          <div className="column is-4">
-            <div className="feature-card">
-              <h3 className="is-size-5 has-text-weight-semibold">Open Data</h3>
-              <p className="is-size-7">Data is exportable and intended to support research and conservation planning.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      
     </div>
   );
 };

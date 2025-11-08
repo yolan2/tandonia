@@ -10,7 +10,7 @@
   },
   "news": {
     "title": "Tandonia Nieuws",
-    "subtitle": "Updates, functies en mijlpalen — gepresenteerd als een overzichtelijke tijdlijn.",
+    "subtitle": "Updates, functies en mijlpalen.",
     "read_more": "Lees meer"
   },
   "contact": {
@@ -19,6 +19,11 @@
     "instructions": "Voeg een korte samenvatting toe, een voorgestelde publicatiedatum en eventuele afbeeldingen (bijlagen of links)."
   },
   "about": {
+    "stats": {
+      "checklists": "Checklists",
+      "visited_grid_cells": "Bezochte rastercellen",
+      "coverage": "Dekking"
+    },
     "title": "Over Tandonia",
     "overview": "Het Tandonia-project wil slak- en weekdiersoorten in België monitoren en documenteren.",
     "how_it_works": "Vrijwilligers kiezen een rastercel op de kaart en registreren waarnemingen in drie habitattypen: bos, moeras en antropogeen.",

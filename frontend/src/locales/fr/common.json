@@ -10,7 +10,7 @@
   },
   "news": {
     "title": "Nouvelles Tandonia",
-    "subtitle": "Mises à jour, fonctionnalités et étapes — présentées dans une timeline claire.",
+    "subtitle": "Mises à jour, fonctionnalités et étapes.",
     "read_more": "En savoir plus"
   },
   "contact": {
@@ -19,6 +19,11 @@
     "instructions": "Veuillez inclure un court résumé, une date de publication suggérée et toutes les images (pièces jointes ou liens)."
   },
   "about": {
+    "stats": {
+      "checklists": "Listes de contrôle",
+      "visited_grid_cells": "Cellules de grille visitées",
+      "coverage": "Couverture"
+    },
     "title": "À propos de Tandonia",
     "overview": "Le projet Tandonia vise à surveiller et documenter les populations d'escargots et de limaces en Belgique.",
     "how_it_works": "Les volontaires sélectionnent une cellule de la grille sur la carte et enregistrent des observations dans trois types d'habitats: forêt, marais et anthropogène.",
