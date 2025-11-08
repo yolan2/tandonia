@@ -2,9 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // API base url (frontend can override with REACT_APP_API_URL, VITE_API_URL or window.__API_URL__)
+// Use safe runtime checks so bundlers don't leave `process` in the client bundle.
 const API_BASE = (
-  process?.env?.REACT_APP_API_URL ||
-  process?.env?.VITE_API_URL ||
+  (typeof process !== 'undefined' && process && process.env && process.env.REACT_APP_API_URL) ||
+  (typeof process !== 'undefined' && process && process.env && process.env.VITE_API_URL) ||
+  // Vite exposes env via import.meta.env
+  (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_URL) ||
   (typeof window !== 'undefined' && (window as any).__API_URL__) ||
   'https://api.tandonia.be'
 ).replace(/\/$/, '');
