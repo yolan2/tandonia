@@ -11,6 +11,8 @@
   "news": {
     "title": "Tandonia News",
     "subtitle": "Updates, features and project milestones.",
+    "by": "By {{author}}",
+    "license": "License: {{license}}",
     "read_more": "Read more"
   },
   "contact": {

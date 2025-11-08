@@ -187,19 +187,25 @@ const NewsPage = () => {
       date: '2025-11-01',
       title: 'Tandonia Project Launch',
       content: 'Welcome to the Tandonia snail monitoring project! We are collecting data on slug and snail species across Belgium.',
-      image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=1200&q=80'
+      image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=1200&q=80',
+      author: 'Y. Tolan',
+      license: 'CC BY-SA 4.0'
     },
     {
       date: '2025-10-15',
       title: 'Database Updates',
       content: 'Our database has been updated to support more detailed habitat information.',
-      image_url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=1200&q=80'
+      image_url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=1200&q=80',
+      author: 'Database Team',
+      license: 'Public Domain'
     },
     {
       date: '2025-10-01',
       title: 'New Grid System',
       content: 'Belgium is now divided into 10x10km grid cells for systematic monitoring.',
-      image_url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?w=1200&q=80'
+      image_url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?w=1200&q=80',
+      author: 'Survey Team',
+      license: 'CC0'
     }
   ];
 
@@ -214,7 +220,14 @@ const NewsPage = () => {
           <article key={idx} className="timeline-item">
             <div className="timeline-date">{item.date}</div>
             {item.image_url && (
-              <img src={item.image_url} alt={item.title} className="timeline-image" />
+              <figure>
+                <img src={item.image_url} alt={item.title} className="timeline-image" />
+                <figcaption className="is-size-7 has-text-grey mt-2">
+                  {item.author ? t('news.by', { author: item.author }) : null}
+                  {item.author && item.license ? ' · ' : ''}
+                  {item.license ? t('news.license', { license: item.license }) : null}
+                </figcaption>
+              </figure>
             )}
 
             <h3 className="timeline-title">{item.title}</h3>
@@ -230,7 +243,7 @@ const NewsPage = () => {
   );
 };
 
-const AboutPage = () => {
+const AboutPage = ({ onNavigate }: any) => {
   const { t } = useTranslation();
   const [stats, setStats] = useState({ checklists: null, visited_grid_cells: null, total_grid_cells: null });
 
@@ -273,10 +286,10 @@ const AboutPage = () => {
               <h3 className="is-size-5 has-text-weight-semibold mt-4">{t('about.how_it_works')}</h3>
               <p>{t('about.how_it_works')}</p>
 
-              <div style={{ marginTop: 16 }}>
-                <button className="button is-primary is-medium">{t('nav.get_involved')}</button>
-                <button className="button is-light is-medium" style={{ marginLeft: 10 }}>{t('about.get_involved')}</button>
-              </div>
+                <div style={{ marginTop: 16 }}>
+                  <button className="button is-primary is-medium" onClick={() => onNavigate && onNavigate('register')}>{t('nav.get_involved')}</button>
+                  <button className="button is-light is-medium" style={{ marginLeft: 10 }}>{t('about.get_involved')}</button>
+                </div>
             </div>
           </div>
 
@@ -430,6 +443,127 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           >
             {isRegister ? `${t('auth.login')}?` : `${t('auth.register')}?`}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LoginPage = ({ onSuccess }: any) => {
+  const auth = React.useContext(AuthContext);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
+
+  const handleSubmit = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await auth.login(email, password);
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto">
+      <div className="box">
+        <h2 className="title is-4 mb-4">{t('auth.login')}</h2>
+
+        {error && <div className="notification is-danger">{error}</div>}
+
+        <div className="field">
+          <label className="label">{t('auth.email')}</label>
+          <div className="control">
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label className="label">{t('auth.password')}</label>
+          <div className="control">
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <div className="control">
+            <button className="button is-primary" onClick={handleSubmit} disabled={loading}>{loading ? t('auth.processing') : t('auth.login')}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RegisterPage = ({ onSuccess }: any) => {
+  const auth = React.useContext(AuthContext);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const { t } = useTranslation();
+
+  const handleSubmit = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const data = await auth.register(email, password, name);
+      if (!data.session) {
+        // registration requires email confirmation
+        setRegistered(true);
+        return;
+      }
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto">
+      <div className="box">
+        <h2 className="title is-4 mb-4">{t('auth.register')}</h2>
+
+        {error && <div className="notification is-danger">{error}</div>}
+        {registered && (
+          <div className="notification is-info">Registration successful — please check your email to confirm your account before logging in.</div>
+        )}
+
+        <div className="field">
+          <label className="label">{t('auth.name')}</label>
+          <div className="control">
+            <input className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label className="label">{t('auth.email')}</label>
+          <div className="control">
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label className="label">{t('auth.password')}</label>
+          <div className="control">
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <div className="control">
+            <button className="button is-primary" onClick={handleSubmit} disabled={loading}>{loading ? t('auth.processing') : t('auth.register')}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -804,7 +938,7 @@ const ChecklistPage = ({ user }: any) => {
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('news');
-  const [showLogin, setShowLogin] = useState(false);
+  // navigation state handles SPA pages, including auth pages
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const auth = useAuth();
   const { t, i18n } = useTranslation();
@@ -891,7 +1025,7 @@ const App = () => {
                       </div>
                     ) : (
                       <div className="buttons">
-                        <button className="button is-link" onClick={() => setShowLogin(true)}><LogIn size={16} style={{ marginRight: 8 }} />{t('nav.login')}</button>
+                          <button className="button is-link" onClick={() => setCurrentPage('login')}><LogIn size={16} style={{ marginRight: 8 }} />{t('nav.login')}</button>
                       </div>
                     )}
                   </div>
@@ -904,19 +1038,14 @@ const App = () => {
         <section className="section" style={{ paddingTop: '4.5rem' }}>
           <div className="container">
             {currentPage === 'news' && <NewsPage />}
-            {currentPage === 'about' && <AboutPage />}
+            {currentPage === 'about' && <AboutPage onNavigate={setCurrentPage} />}
             {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
             {currentPage === 'contact' && <ContactPage />}
+            {currentPage === 'login' && <LoginPage onSuccess={() => setCurrentPage('news')} />}
+            {currentPage === 'register' && <RegisterPage onSuccess={() => setCurrentPage('news')} />}
           </div>
         </section>
 
-        {showLogin && (
-          <LoginModal
-            onClose={() => setShowLogin(false)}
-            onLogin={auth.login}
-            onRegister={auth.register}
-          />
-        )}
       </div>
     </AuthContext.Provider>
   );

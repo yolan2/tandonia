@@ -11,6 +11,8 @@
   "news": {
     "title": "Tandonia Nieuws",
     "subtitle": "Updates, functies en mijlpalen.",
+    "by": "Door {{author}}",
+    "license": "Licentie: {{license}}",
     "read_more": "Lees meer"
   },
   "contact": {

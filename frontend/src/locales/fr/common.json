@@ -11,6 +11,8 @@
   "news": {
     "title": "Nouvelles Tandonia",
     "subtitle": "Mises à jour, fonctionnalités et étapes.",
+    "by": "Par {{author}}",
+    "license": "Licence : {{license}}",
     "read_more": "En savoir plus"
   },
   "contact": {
