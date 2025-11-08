@@ -34,7 +34,11 @@ const useAuth = () => {
   const supabase = getSupabaseClient();
   
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      // If Supabase client isn't available in the browser, stop loading so the UI can render.
+      setLoading(false);
+      return;
+    }
 
     // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
