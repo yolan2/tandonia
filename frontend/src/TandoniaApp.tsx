@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 // API base url (frontend can override with REACT_APP_API_URL, VITE_API_URL or window.__API_URL__)
 // Use safe runtime checks so bundlers don't leave `process` in the client bundle.
@@ -14,16 +15,24 @@ const API_BASE = (
 import { MapPin, Menu, X, LogIn, LogOut, User, FileText, Home, Info } from 'lucide-react';
 
 // Supabase client configuration
-// Add this script tag to your HTML: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-const getSupabaseClient = () => {
-  if (typeof window !== 'undefined' && (window as any).supabase) {
-    // Replace with your actual Supabase URL and anon key
-    const SUPABASE_URL = 'https://your-project.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key';
-    return (window as any).supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Prefer using Vite env vars: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+// Falls back to window globals if you set them manually in the page.
+const SUPABASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_URL)
+  || (typeof window !== 'undefined' && (window as any).__SUPABASE_URL__) || '';
+const SUPABASE_ANON_KEY = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY)
+  || (typeof window !== 'undefined' && (window as any).__SUPABASE_ANON_KEY__) || '';
+
+let _supabaseClient: any = null;
+try {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('Supabase client created in frontend');
   }
-  return null;
-};
+} catch (e: any) {
+  console.warn('Could not create Supabase client in frontend:', e?.message || e);
+}
+
+const getSupabaseClient = () => _supabaseClient;
 
 // Auth context using Supabase Auth
 const AuthContext = React.createContext<any>(null);
@@ -690,24 +699,24 @@ const ChecklistPage = ({ user }: any) => {
                       Geen soorten gevonden voor "{searchTerm}"
                     </div>
                   ) : (
-                    filteredSpecies.map(sp => (
-                      <div key={sp.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-green-500 transition">
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold text-gray-800">{sp.dutch_name}</div>
-                          <div className="text-xs text-gray-500 italic">{sp.scientific_name}</div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {sp.observation_count} waarnemingen
+                    filteredSpecies.map((sp) => {
+                      return (
+                        <div key={sp.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-green-500 transition">
+                          <div className="flex-1">
+                            <div className="text-sm font-semibold text-gray-800">{sp.dutch_name}</div>
+                            <div className="text-xs text-gray-500 italic">{sp.scientific_name}</div>
+                            <div className="text-xs text-gray-400 mt-1">{sp.observation_count} waarnemingen</div>
                           </div>
+                          <input
+                            type="number"
+                            min="0"
+                            value={species[sp.id] || 0}
+                            onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))}
+                            className="w-20 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-center font-semibold"
+                          />
                         </div>
-                        <input
-                          type="number"
-                          min="0"
-                          value={species[sp.id] || 0}
-                          onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))}
-                          className="w-20 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-center font-semibold"
-                        />
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -755,128 +764,58 @@ const App = () => {
 
   return (
     <AuthContext.Provider value={auth}>
-      <div className="min-h-screen bg-gray-100">
-        {/* Add Supabase script */}
-        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        
-        <nav className="bg-green-700 text-white shadow-lg">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex justify-between items-center py-4">
-              <div className="flex items-center space-x-2">
-                <MapPin size={32} />
-                <h1 className="text-2xl font-bold">Tandonia</h1>
-              </div>
+      <div className="has-navbar-fixed-top">
+        {/* Supabase client is initialized from Vite env vars (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY) */}
 
-              <div className="hidden md:flex items-center space-x-6">
-                <button
-                  onClick={() => setCurrentPage('news')}
-                  className={`flex items-center space-x-1 hover:text-green-200 ${
-                    currentPage === 'news' ? 'font-bold' : ''
-                  }`}
-                >
-                  <Home size={20} />
-                  <span>News</span>
-                </button>
-                <button
-                  onClick={() => setCurrentPage('about')}
-                  className={`flex items-center space-x-1 hover:text-green-200 ${
-                    currentPage === 'about' ? 'font-bold' : ''
-                  }`}
-                >
-                  <Info size={20} />
-                  <span>About</span>
-                </button>
-                <button
-                  onClick={() => setCurrentPage('checklist')}
-                  className={`flex items-center space-x-1 hover:text-green-200 ${
-                    currentPage === 'checklist' ? 'font-bold' : ''
-                  }`}
-                >
-                  <FileText size={20} />
-                  <span>Submit Checklist</span>
-                </button>
+        <nav className="navbar is-primary is-fixed-top" role="navigation" aria-label="main navigation">
+          <div className="container">
+            <div className="navbar-brand">
+              <a className="navbar-item" onClick={() => setCurrentPage('news')} style={{ cursor: 'pointer' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MapPin size={28} />
+                  <strong>Tandonia</strong>
+                </span>
+              </a>
 
-                {auth.user ? (
-                  <div className="flex items-center space-x-4">
-                    <span className="flex items-center space-x-1">
-                      <User size={20} />
-                      <span>{auth.user.email}</span>
-                    </span>
-                    <button
-                      onClick={auth.logout}
-                      className="flex items-center space-x-1 hover:text-green-200"
-                    >
-                      <LogOut size={20} />
-                      <span>Logout</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowLogin(true)}
-                    className="flex items-center space-x-1 bg-green-600 px-4 py-2 rounded-lg hover:bg-green-500"
-                  >
-                    <LogIn size={20} />
-                    <span>Login</span>
-                  </button>
-                )}
-              </div>
-
-              <button
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
+              <a role="button" className={`navbar-burger ${mobileMenuOpen ? 'is-active' : ''}`} aria-label="menu" aria-expanded="false" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+              </a>
             </div>
 
-            {mobileMenuOpen && (
-              <div className="md:hidden pb-4 space-y-2">
-                <button
-                  onClick={() => { setCurrentPage('news'); setMobileMenuOpen(false); }}
-                  className="block w-full text-left py-2 hover:text-green-200"
-                >
-                  News
-                </button>
-                <button
-                  onClick={() => { setCurrentPage('about'); setMobileMenuOpen(false); }}
-                  className="block w-full text-left py-2 hover:text-green-200"
-                >
-                  About
-                </button>
-                <button
-                  onClick={() => { setCurrentPage('checklist'); setMobileMenuOpen(false); }}
-                  className="block w-full text-left py-2 hover:text-green-200"
-                >
-                  Submit Checklist
-                </button>
-                {auth.user ? (
-                  <>
-                    <div className="py-2">{auth.user.email}</div>
-                    <button
-                      onClick={() => { auth.logout(); setMobileMenuOpen(false); }}
-                      className="block w-full text-left py-2 hover:text-green-200"
-                    >
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => { setShowLogin(true); setMobileMenuOpen(false); }}
-                    className="block w-full text-left py-2 bg-green-600 px-4 rounded-lg hover:bg-green-500"
-                  >
-                    Login
-                  </button>
-                )}
+            <div className={`navbar-menu ${mobileMenuOpen ? 'is-active' : ''}`}>
+              <div className="navbar-start">
+                <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>News</a>
+                <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>About</a>
+                <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>Submit Checklist</a>
               </div>
-            )}
+
+              <div className="navbar-end">
+                <div className="navbar-item">
+                  {auth.user ? (
+                    <div className="buttons is-right">
+                      <span className="tag is-light">{auth.user.email}</span>
+                      <button className="button is-light" onClick={auth.logout}><LogOut size={16} style={{ marginRight: 8 }} />Logout</button>
+                    </div>
+                  ) : (
+                    <div className="buttons">
+                      <button className="button is-link" onClick={() => setShowLogin(true)}><LogIn size={16} style={{ marginRight: 8 }} />Login</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </nav>
 
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          {currentPage === 'news' && <NewsPage />}
-          {currentPage === 'about' && <AboutPage />}
-          {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
-        </main>
+        <section className="section" style={{ paddingTop: '4.5rem' }}>
+          <div className="container">
+            {currentPage === 'news' && <NewsPage />}
+            {currentPage === 'about' && <AboutPage />}
+            {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
+          </div>
+        </section>
 
         {showLogin && (
           <LoginModal
@@ -891,3 +830,9 @@ const App = () => {
 };
 
 export default App;
+
+curl.exe -i https://api.tandonia.be/health
+
+cd frontend
+npm run build
+npm run preview   # or serve the dist folder
