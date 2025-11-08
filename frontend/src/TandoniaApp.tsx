@@ -231,29 +231,81 @@ const NewsPage = () => {
 
 const AboutPage = () => {
   return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">About Tandonia</h1>
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Project Overview</h2>
-        <p className="text-gray-700 mb-4">
-          The Tandonia project aims to monitor and document slug and snail populations across Belgium.
-          By collecting systematic data in 10x10km grid cells, we can track species distribution and
-          abundance over time.
-        </p>
-        
-        <h2 className="text-2xl font-semibold mb-4 mt-8 text-gray-800">How It Works</h2>
-        <p className="text-gray-700 mb-4">
-          Volunteers select a grid cell on the map and record observations from three habitat types:
-          forest, swamp, and anthropogenous (human-modified) areas. For each habitat, observers count
-          the number of individuals of each snail species found.
-        </p>
-        
-        <h2 className="text-2xl font-semibold mb-4 mt-8 text-gray-800">Get Involved</h2>
-        <p className="text-gray-700">
-          Create an account and start submitting checklists! Your observations contribute to our
-          understanding of snail biodiversity in Belgium.
-        </p>
-      </div>
+    <div className="max-w-6xl mx-auto">
+      <section className="about-hero mb-6">
+        <div className="columns is-vcentered">
+          <div className="column is-6">
+            <h1 className="title is-2 has-text-weight-bold">About Tandonia</h1>
+            <p className="subtitle is-6 mb-4">Citizen science for snails and slugs — collect observations, map habitats, and help conservation across Belgium.</p>
+
+            <div className="content">
+              <h3 className="is-size-5 has-text-weight-semibold">Project Overview</h3>
+              <p>The Tandonia project aims to monitor and document slug and snail populations across Belgium. By collecting systematic data in 10x10km grid cells, we can track species distribution and abundance over time.</p>
+
+              <h3 className="is-size-5 has-text-weight-semibold mt-4">How it works</h3>
+              <ul>
+                <li>Choose a grid cell on the map</li>
+                <li>Record up to three habitat locations (forest, swamp, anthropogenous)</li>
+                <li>Submit species counts and optional notes</li>
+              </ul>
+
+              <div style={{ marginTop: 16 }}>
+                <button className="button is-primary is-medium">Get Involved</button>
+                <button className="button is-light is-medium" style={{ marginLeft: 10 }}>Read the guide</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="column is-6">
+            <img src="https://images.unsplash.com/photo-1501004318641-b39e6451bec6?w=1600&q=80" alt="Field survey" className="hero-image" />
+          </div>
+        </div>
+
+        <div className="columns mt-5">
+          <div className="column">
+            <div className="stats-grid">
+              <div className="stat">
+                <div className="value">1.2k</div>
+                <div className="label">Observations</div>
+              </div>
+              <div className="stat">
+                <div className="value">320</div>
+                <div className="label">Contributors</div>
+              </div>
+              <div className="stat">
+                <div className="value">10x10 km</div>
+                <div className="label">Grid resolution</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="title is-4">What we track</h2>
+        <div className="columns is-multiline">
+          <div className="column is-4">
+            <div className="feature-card">
+              <h3 className="is-size-5 has-text-weight-semibold">Species Diversity</h3>
+              <p className="is-size-7">We record a broad set of species, with taxonomy and optional photos.</p>
+            </div>
+          </div>
+
+          <div className="column is-4">
+            <div className="feature-card">
+              <h3 className="is-size-5 has-text-weight-semibold">Habitat Data</h3>
+              <p className="is-size-7">Each checklist includes habitat types and geolocated points so we can monitor trends per habitat.</p>
+            </div>
+          </div>
+
+          <div className="column is-4">
+            <div className="feature-card">
+              <h3 className="is-size-5 has-text-weight-semibold">Open Data</h3>
+              <p className="is-size-7">Data is exportable and intended to support research and conservation planning.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
