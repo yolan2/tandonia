@@ -2,48 +2,45 @@
   "nav": {
     "news": "Nieuws",
     "about": "Over",
-    "checklist": "Checklist Indienen",
+    "checklist": "Checklist",
     "contact": "Contact",
     "login": "Inloggen",
-    "logout": "Uitloggen",
-    "get_involved": "Doe mee"
+    "logout": "Uitloggen"
   },
   "news": {
-    "title": "Tandonia Nieuws",
-    "subtitle": "Updates, functies en mijlpalen.",
-    "by": "Door {{author}}",
+    "reading": "Nieuws laden...",
+    "by": "Foto door {{author}}",
     "license": "Licentie: {{license}}",
     "read_more": "Lees meer"
   },
+  "about": {
+    "title": "Over het Tandonia-project",
+    "overview": "We verzamelen waarnemingen van slakken in België met hulp van vrijwilligers en natuurliefhebbers.",
+    "how_it_works": "Hoe werkt het",
+    "stats": {
+      "checklists": "Ingezonden checklists",
+      "visited_grid_cells": "Bezochte gridcellen",
+      "coverage": "Dekgraad"
+    }
+  },
   "contact": {
     "title": "Contact",
-    "invite": "Heb je nieuws om te delen? Stuur je nieuwsitems, afbeeldingen en datum naar het onderstaande e-mailadres. Ik bekijk het en plaats het, eventueel met aanpassingen, op de website.",
-    "instructions": "Voeg een korte samenvatting toe, een voorgestelde publicatiedatum en eventuele afbeeldingen (bijlagen of links)."
-  },
-  "about": {
-    "stats": {
-      "checklists": "Checklists",
-      "visited_grid_cells": "Bezochte rastercellen",
-      "coverage": "Dekking"
-    },
-    "title": "Over Tandonia",
-    "overview": "Het Tandonia-project wil slak- en weekdiersoorten in België monitoren en documenteren.",
-    "how_it_works": "Vrijwilligers kiezen een rastercel op de kaart en registreren waarnemingen in drie habitattypen: bos, moeras en antropogeen.",
-    "get_involved": "Maak een account aan en begin met het indienen van checklists!"
-  },
-  "checklist": {
-    "title": "Checklist Indienen",
-    "step1": "Stap 1: Kies Rastercel",
-    "add_locations": "Locaties Toevoegen",
-    "step3": "Stap 3: Aantal per Soort",
-    "submit": "Checklist Indienen"
+    "invite": "Heb je nieuws of waarnemingen over Tandonia? Stuur ons een e-mail.",
+    "instructions": "We lezen elk bericht en nemen contact op als we meer info nodig hebben."
   },
   "auth": {
     "register": "Registreren",
     "login": "Inloggen",
+    "name": "Naam",
     "email": "E-mail",
     "password": "Wachtwoord",
-    "name": "Naam",
     "processing": "Bezig..."
+  },
+  "checklist": {
+    "title": "Checklist",
+    "step1": "Stap 1: Kies een gridcel",
+    "add_locations": "Stap 2: Voeg habitats toe",
+    "step3": "Stap 3: Noteer soorten",
+    "submit": "Checklist indienen"
   }
 }

@@ -2,48 +2,45 @@
   "nav": {
     "news": "Actualités",
     "about": "À propos",
-    "checklist": "Soumettre une checklist",
+    "checklist": "Checklist",
     "contact": "Contact",
-    "login": "Connexion",
-    "logout": "Déconnexion",
-    "get_involved": "Participez"
+    "login": "Se connecter",
+    "logout": "Se déconnecter"
   },
   "news": {
-    "title": "Nouvelles Tandonia",
-    "subtitle": "Mises à jour, fonctionnalités et étapes.",
-    "by": "Par {{author}}",
+    "reading": "Chargement des actualités...",
+    "by": "Photo : {{author}}",
     "license": "Licence : {{license}}",
     "read_more": "En savoir plus"
   },
+  "about": {
+    "title": "À propos du projet Tandonia",
+    "overview": "Nous cartographions les observations de limaces en Belgique grâce aux bénévoles et naturalistes.",
+    "how_it_works": "Comment ça marche",
+    "stats": {
+      "checklists": "Listes soumises",
+      "visited_grid_cells": "Mailles visitées",
+      "coverage": "Couverture"
+    }
+  },
   "contact": {
     "title": "Contact",
-    "invite": "Vous avez des nouvelles à partager ? Envoyez vos articles, images et dates à l'adresse ci-dessous. Nous les examinerons et les publierons si approprié.",
-    "instructions": "Veuillez inclure un court résumé, une date de publication suggérée et toutes les images (pièces jointes ou liens)."
-  },
-  "about": {
-    "stats": {
-      "checklists": "Listes de contrôle",
-      "visited_grid_cells": "Cellules de grille visitées",
-      "coverage": "Couverture"
-    },
-    "title": "À propos de Tandonia",
-    "overview": "Le projet Tandonia vise à surveiller et documenter les populations d'escargots et de limaces en Belgique.",
-    "how_it_works": "Les volontaires sélectionnent une cellule de la grille sur la carte et enregistrent des observations dans trois types d'habitats: forêt, marais et anthropogène.",
-    "get_involved": "Créez un compte et commencez à soumettre des checklists !"
-  },
-  "checklist": {
-    "title": "Soumettre une checklist",
-    "step1": "Étape 1 : Sélectionnez une cellule",
-    "add_locations": "Ajouter des emplacements",
-    "step3": "Étape 3 : Abondance par espèce",
-    "submit": "Soumettre la checklist"
+    "invite": "Vous avez une observation ou une information Tandonia ? Envoyez-nous un e-mail.",
+    "instructions": "Nous lisons chaque message et revenons vers vous si nous avons besoin de précisions."
   },
   "auth": {
-    "register": "Inscription",
-    "login": "Connexion",
+    "register": "S'inscrire",
+    "login": "Se connecter",
+    "name": "Nom",
     "email": "E-mail",
     "password": "Mot de passe",
-    "name": "Nom",
     "processing": "Traitement..."
+  },
+  "checklist": {
+    "title": "Checklist",
+    "step1": "Étape 1 : Choisissez une maille",
+    "add_locations": "Étape 2 : Ajoutez des habitats",
+    "step3": "Étape 3 : Encoder les espèces",
+    "submit": "Envoyer la checklist"
   }
 }
