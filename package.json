@@ -7,11 +7,10 @@
     "start": "node \"tandonia_backend.js\""
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.80.0",
-    "bcryptjs": "^2.4.3",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.0",
     "pg": "^8.11.0",
-    "serverless-http": "^3.0.0"
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "@supabase/supabase-js": "^2.26.0"
   }
 }

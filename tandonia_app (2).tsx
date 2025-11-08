@@ -1,7 +1,26 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
+
+// API base url (frontend can override with REACT_APP_API_URL, VITE_API_URL or window.__API_URL__)
+const API_BASE = (
+  process?.env?.REACT_APP_API_URL ||
+  process?.env?.VITE_API_URL ||
+  (typeof window !== 'undefined' && window.__API_URL__) ||
+  'https://api.tandonia.be'
+).replace(/\/$/, '');
 import { MapPin, Menu, X, LogIn, LogOut, User, FileText, Home, Info } from 'lucide-react';
-import { supabase } from './src/lib/supabase';
+
+// Supabase client configuration
+// Add this script tag to your HTML: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+const getSupabaseClient = () => {
+  if (typeof window !== 'undefined' && window.supabase) {
+    // Replace with your actual Supabase URL and anon key
+    const SUPABASE_URL = 'https://your-project.supabase.co';
+    const SUPABASE_ANON_KEY = 'your-anon-key';
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  return null;
+};
 
 // Auth context using Supabase Auth
 const AuthContext = React.createContext(null);
@@ -9,7 +28,7 @@ const AuthContext = React.createContext(null);
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+  const supabase = getSupabaseClient();
   
   useEffect(() => {
     if (!supabase) return;
@@ -40,7 +59,7 @@ const useAuth = () => {
     
     // Sync user to local database
     if (data.user) {
-      await fetch('/api/auth/sync', {
+      await fetch(`${API_BASE}/api/auth/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +97,7 @@ const useAuth = () => {
     
     // Sync user to local database
     if (data.user) {
-      await fetch('/api/auth/sync', {
+      await fetch(`${API_BASE}/api/auth/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -516,7 +535,7 @@ const ChecklistPage = ({ user }) => {
       // Get access token from Auth context (provided by App)
       const token = auth && auth.getAccessToken ? await auth.getAccessToken() : null;
       
-      const response = await fetch('/api/checklists', {
+      const response = await fetch(`${API_BASE}/api/checklists`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

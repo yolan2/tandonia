@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: tandonia-backend
+    env: node
+    branch: master
+    buildCommand: ""
+    startCommand: "node \"tandonia_backend.js\""
+    plan: free
+    autoDeploy: true
+    envVars: []
+  - type: static
+    name: tandonia-frontend
+    env: static
+    branch: master
+    buildCommand: "cd frontend && npm install && npm run build"
+    publishPath: "frontend/dist"
+    plan: free
+    autoDeploy: true
+    envVars: []

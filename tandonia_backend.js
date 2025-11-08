@@ -1,8 +1,26 @@
 // api/index.js - Main serverless function for Vercel
+// Load local environment variables from .env when present
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv is optional in production environments
+}
+
 const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+// Optional Supabase admin client (used when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided)
+let supabaseAdmin = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    console.log('Supabase admin client initialized');
+  } catch (err) {
+    console.warn('Could not initialize supabase admin client:', err.message);
+  }
+}
 
 const app = express();
 app.use(express.json());
@@ -17,7 +35,7 @@ const pool = new Pool({
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -25,13 +43,29 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'No token provided' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
+  // If supabase admin client is available, prefer verifying via Supabase
+  if (supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.auth.getUser(token);
+      if (error || !data?.user) {
+        return res.status(403).json({ error: 'Invalid token' });
+      }
+      req.user = { id: data.user.id, email: data.user.email };
+      return next();
+    } catch (err) {
+      console.error('Supabase token verification error:', err);
       return res.status(403).json({ error: 'Invalid token' });
     }
+  }
+
+  // Fallback to local JWT verification
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
     req.user = user;
-    next();
-  });
+    return next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Invalid token' });
+  }
 };
 
 // ============= AUTH ENDPOINTS =============
