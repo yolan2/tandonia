@@ -34,6 +34,12 @@ try {
 
 const getSupabaseClient = () => _supabaseClient;
 
+// Frontend origin to use for auth redirects. Prefer explicit Vite var VITE_FRONTEND_URL,
+// otherwise fallback to current location.origin (works during production on the deployed site).
+const FRONTEND_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FRONTEND_URL)
+  || (typeof window !== 'undefined' && window.location && window.location.origin)
+  || 'https://tandonia-1.onrender.com';
+
 // Auth context using Supabase Auth
 const AuthContext = React.createContext<any>(null);
 
@@ -114,13 +120,15 @@ const useAuth = () => {
   const register = async (email: string, password: string, name: string) => {
     if (!supabase) throw new Error('Supabase not initialized');
     
+    // Pass an explicit redirect URL so the confirmation email doesn't point to localhost.
+    // Supabase embeds redirect URL for email confirmations at the time of signUp.
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          name: name
-        }
+        data: { name: name },
+        // emailRedirectTo is supported by Supabase auth to override the project Site URL for this email
+        emailRedirectTo: FRONTEND_URL
       }
     });
     
@@ -753,6 +761,30 @@ const App = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const auth = useAuth();
+
+  // If the user clicked a confirmation link (which supplies an access_token in the URL fragment),
+  // Supabase requires the SPA to parse the fragment and set the session. getSessionFromUrl() will
+  // parse the URL and set the session in the client. We call it on app load when an access_token
+  // is present in the URL to consume the token and clean the URL.
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    try {
+      const hasToken = (window.location.hash && window.location.hash.includes('access_token'))
+        || (window.location.search && window.location.search.includes('access_token'));
+      if (!hasToken) return;
+
+      supabase.auth.getSessionFromUrl()
+        .then(({ data, error }) => {
+          if (error) console.error('supabase.getSessionFromUrl error', error);
+          else console.log('Supabase session from URL handled:', data);
+          try { history.replaceState({}, document.title, window.location.pathname + window.location.search); } catch (_) {}
+        })
+        .catch((err: any) => console.error('supabase.getSessionFromUrl catch', err));
+    } catch (err) {
+      console.error('Error while handling session from URL:', err);
+    }
+  }, []);
 
   if (auth.loading) {
     return (
