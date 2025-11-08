@@ -1,14 +1,15 @@
 /* Theme variables: change palette here to restyle the entire site */
 :root {
-	--color-bg: #f6fbfb; /* very light */
+	/* Formal palette: navy + gold accents */
+	--color-bg: #f4f6f8; /* soft neutral */
 	--color-surface: #ffffff;
-	--color-primary: #0f766e; /* deep teal */
-	--color-primary-600: #0e6b63;
-	--color-accent: #ff7a59; /* warm coral */
-	--color-rail: #e9f3f2; /* timeline rail */
-	--color-text: #0f172a;
-	--color-muted: #6b7280;
-	--color-card-shadow: rgba(12,18,24,0.06);
+	--color-primary: #0b2545; /* formal navy */
+	--color-primary-600: #09203a;
+	--color-accent: #b8860b; /* elegant gold */
+	--color-rail: #e9eef6; /* subtle cool rail */
+	--color-text: #0b2545; /* use navy for text */
+	--color-muted: #586574; /* muted slate */
+	--color-card-shadow: rgba(11,37,69,0.06);
 }
 
 /* minimal reset so the app looks OK */
@@ -47,7 +48,7 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 	width: 16px;
 	height: 16px;
 	border-radius: 50%;
-	background: var(--color-accent);
+	background: var(--color-primary);
 	border: 3px solid var(--color-surface);
 	box-shadow: 0 2px 6px rgba(0,0,0,0.06);
 }
@@ -83,6 +84,7 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 	border-radius: 12px;
 	padding: 2rem;
 	box-shadow: 0 8px 26px var(--color-card-shadow);
+	border-left: 4px solid var(--color-accent);
 }
 .about-hero .hero-image {
 	width: 100%;
@@ -95,17 +97,18 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 	background: var(--color-surface);
 	border-radius: 10px;
 	padding: 1.25rem;
-	box-shadow: 0 8px 20px rgba(12,18,24,0.04);
+	box-shadow: 0 8px 20px var(--color-card-shadow);
 	transition: transform 160ms ease, box-shadow 160ms ease;
+	border-left: 3px solid var(--color-primary);
 }
 .feature-card:hover { transform: translateY(-6px); box-shadow: 0 12px 30px rgba(12,18,24,0.08); }
 .stats-grid { display: flex; gap: 1rem; flex-wrap: wrap; }
-.stat { flex: 1; background: linear-gradient(180deg,var(--color-surface),#fbfdff); padding: 1rem; border-radius: 8px; text-align: center; box-shadow: 0 6px 16px rgba(12,18,24,0.04); }
-.stat .value { font-size: 1.5rem; font-weight: 700; color: var(--color-text); }
+.stat { flex: 1; background: linear-gradient(180deg,var(--color-surface),#fbfdff); padding: 1rem; border-radius: 8px; text-align: center; box-shadow: 0 6px 16px var(--color-card-shadow); }
+.stat .value { font-size: 1.5rem; font-weight: 700; color: var(--color-primary); }
 .stat .label { font-size: 0.9rem; color: var(--color-muted); }
 
 /* Bulma overrides to apply the theme */
-.navbar.is-primary { background-color: var(--Color, var(--color-primary)) !important; background-image: none !important; }
+.navbar.is-primary { background-color: var(--color-primary) !important; background-image: none !important; }
 .navbar.is-primary .navbar-item,
 .navbar.is-primary .navbar-link { color: #fff !important; }
 .button.is-primary { background-color: var(--color-primary); border-color: var(--color-primary); color: #fff }
