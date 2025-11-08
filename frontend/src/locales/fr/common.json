@@ -1,0 +1,49 @@
+{
+  "nav": {
+    "news": "Actualités",
+    "about": "À propos",
+    "checklist": "Soumettre une checklist",
+    "contact": "Contact",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "get_involved": "Participez"
+  },
+  "news": {
+    "title": "Nouvelles Tandonia",
+    "subtitle": "Mises à jour, fonctionnalités et étapes.",
+    "by": "Par {{author}}",
+    "license": "Licence : {{license}}",
+    "read_more": "En savoir plus"
+  },
+  "contact": {
+    "title": "Contact",
+    "invite": "Vous avez des nouvelles à partager ? Envoyez vos articles, images et dates à l'adresse ci-dessous. Nous les examinerons et les publierons si approprié.",
+    "instructions": "Veuillez inclure un court résumé, une date de publication suggérée et toutes les images (pièces jointes ou liens)."
+  },
+  "about": {
+    "stats": {
+      "checklists": "Listes de contrôle",
+      "visited_grid_cells": "Cellules de grille visitées",
+      "coverage": "Couverture"
+    },
+    "title": "À propos de Tandonia",
+    "overview": "Le projet Tandonia vise à surveiller et documenter les populations d'escargots et de limaces en Belgique.",
+    "how_it_works": "Les volontaires sélectionnent une cellule de la grille sur la carte et enregistrent des observations dans trois types d'habitats: forêt, marais et anthropogène.",
+    "get_involved": "Créez un compte et commencez à soumettre des checklists !"
+  },
+  "checklist": {
+    "title": "Soumettre une checklist",
+    "step1": "Étape 1 : Sélectionnez une cellule",
+    "add_locations": "Ajouter des emplacements",
+    "step3": "Étape 3 : Abondance par espèce",
+    "submit": "Soumettre la checklist"
+  },
+  "auth": {
+    "register": "Inscription",
+    "login": "Connexion",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "processing": "Traitement..."
+  }
+}

@@ -13,6 +13,7 @@ const API_BASE = (
   'https://api.tandonia.be'
 ).replace(/\/$/, '');
 import { MapPin, Menu, X, LogIn, LogOut, User, FileText, Home, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Supabase client configuration
 // Prefer using Vite env vars: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
@@ -181,46 +182,83 @@ const useAuth = () => {
 };
 
 const NewsPage = () => {
-  const newsItems = [
-    {
-      date: '2025-11-01',
-      title: 'Tandonia Project Launch',
-      content: 'Welcome to the Tandonia snail monitoring project! We are collecting data on slug and snail species across Belgium.',
-      image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=1200&q=80'
-    },
-    {
-      date: '2025-10-15',
-      title: 'Database Updates',
-      content: 'Our database has been updated to support more detailed habitat information.',
-      image_url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=1200&q=80'
-    },
-    {
-      date: '2025-10-01',
-      title: 'New Grid System',
-      content: 'Belgium is now divided into 10x10km grid cells for systematic monitoring.',
-      image_url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?w=1200&q=80'
-    }
-  ];
+  const { t } = useTranslation();
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadFromApi = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/news`);
+        if (!res.ok) throw new Error('no-api');
+        const data = await res.json();
+        if (!mounted) return;
+        setItems(Array.isArray(data) ? data : []);
+        setLoading(false);
+        return true;
+      } catch (err) {
+        // API not available or returned error — fall back to Supabase if available
+        return false;
+      }
+    };
+
+    const loadFromSupabase = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) throw new Error('no-supabase');
+        const { data, error } = await supabase.from('news').select('*').order('date', { ascending: false });
+        if (error) throw error;
+        if (!mounted) return;
+        setItems(data ?? []);
+        setLoading(false);
+        return true;
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || 'Failed to load news');
+        setLoading(false);
+        return false;
+      }
+    };
+
+    (async () => {
+      const ok = await loadFromApi();
+      if (!ok) await loadFromSupabase();
+    })();
+
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) return <div className="max-w-4xl mx-auto">{t('news.reading') || 'Loading...'}</div>;
+  if (error) return <div className="max-w-4xl mx-auto has-text-danger">{error}</div>;
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="title is-2 has-text-weight-bold mb-6">Tandonia News</h1>
-      <p className="subtitle is-6 mb-5">Updates, features and project milestones — presented as a clean timeline.</p>
-
       <div className="timeline">
-        {newsItems.map((item, idx) => (
-          <article key={idx} className="timeline-item">
-            <div className="timeline-date">{item.date}</div>
+        {items.map((item: any, idx: number) => (
+          <article key={item.id ?? idx} className="timeline-item">
+            <div className="timeline-date">{item.date || item.published_at || ''}</div>
+
             {item.image_url && (
-              <img src={item.image_url} alt={item.title} className="timeline-image" />
+              <figure>
+                <img src={item.image_url} alt={item.title} className="timeline-image" />
+                {(item.author || item.license) && (
+                  <figcaption className="is-size-7 has-text-grey mt-2">
+                    {item.author ? t('news.by', { author: item.author }) : null}
+                    {item.author && item.license ? ' · ' : ''}
+                    {item.license ? t('news.license', { license: item.license }) : null}
+                  </figcaption>
+                )}
+              </figure>
             )}
 
             <h3 className="timeline-title">{item.title}</h3>
-            <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content}</p>
+            <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content || item.body || item.excerpt}</p>
 
             <div style={{ marginTop: 10 }}>
-              <button className="button is-small is-outlined is-primary">Read more</button>
-              <span style={{ marginLeft: 10 }} className="tag is-light">Updates</span>
+              <button className="button is-small is-outlined is-primary">{t('news.read_more')}</button>
             </div>
           </article>
         ))}
@@ -229,31 +267,103 @@ const NewsPage = () => {
   );
 };
 
-const AboutPage = () => {
+const AboutPage = ({ onNavigate }: any) => {
+  const { t } = useTranslation();
+  const [stats, setStats] = useState({ checklists: null, visited_grid_cells: null, total_grid_cells: null });
+
+  useEffect(() => {
+    let mounted = true;
+    // Attempt to fetch aggregated stats from the API. Endpoint is best-effort — if absent we'll keep placeholders.
+    fetch(`${API_BASE}/api/stats/summary`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        return res.json();
+      })
+      .then((data) => {
+        if (!mounted) return;
+        setStats({
+          checklists: data.checklists ?? 0,
+          visited_grid_cells: data.visited_grid_cells ?? 0,
+          total_grid_cells: data.total_grid_cells ?? 0
+        });
+      })
+      .catch((err) => {
+        // Silent fallback — show placeholders in the UI
+        console.warn('Could not load stats from API:', err?.message || err);
+      });
+
+    return () => { mounted = false; };
+  }, []);
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <section className="about-hero mb-6">
+        <div className="columns is-vcentered">
+          <div className="column is-6">
+            <h1 className="title is-2 has-text-weight-bold">{t('about.title')}</h1>
+            <p className="subtitle is-6 mb-4">{t('about.overview')}</p>
+
+            <div className="content">
+              <h3 className="is-size-5 has-text-weight-semibold">{t('about.title')}</h3>
+              <p>{t('about.overview')}</p>
+
+              <h3 className="is-size-5 has-text-weight-semibold mt-4">{t('about.how_it_works')}</h3>
+              <p>{t('about.how_it_works')}</p>
+
+                <div style={{ marginTop: 16 }}>
+                  <button className="button is-primary is-medium" onClick={() => onNavigate && onNavigate('register')}>{t('auth.register')}</button>
+                </div>
+            </div>
+          </div>
+
+          <div className="column is-6">
+            <img src="https://images.unsplash.com/photo-1501004318641-b39e6451bec6?w=1600&q=80" alt="Field survey" className="hero-image" />
+          </div>
+        </div>
+
+        <div className="columns mt-5">
+          <div className="column">
+            <div className="stats-grid">
+              <div className="stat">
+                <div className="value">{stats.checklists !== null ? stats.checklists : '—'}</div>
+                <div className="label">{t('about.stats.checklists')}</div>
+              </div>
+
+              <div className="stat">
+                <div className="value">{stats.visited_grid_cells !== null ? stats.visited_grid_cells : '—'}</div>
+                <div className="label">{t('about.stats.visited_grid_cells')}</div>
+              </div>
+
+              <div className="stat">
+                <div className="value">
+                  {stats.total_grid_cells ? `${Math.round(((stats.visited_grid_cells || 0) / stats.total_grid_cells) * 100)}%` : '—'}
+                </div>
+                <div className="label">{t('about.stats.coverage')}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+    </div>
+  );
+};
+
+const ContactPage = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">About Tandonia</h1>
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Project Overview</h2>
-        <p className="text-gray-700 mb-4">
-          The Tandonia project aims to monitor and document slug and snail populations across Belgium.
-          By collecting systematic data in 10x10km grid cells, we can track species distribution and
-          abundance over time.
-        </p>
-        
-        <h2 className="text-2xl font-semibold mb-4 mt-8 text-gray-800">How It Works</h2>
-        <p className="text-gray-700 mb-4">
-          Volunteers select a grid cell on the map and record observations from three habitat types:
-          forest, swamp, and anthropogenous (human-modified) areas. For each habitat, observers count
-          the number of individuals of each snail species found.
-        </p>
-        
-        <h2 className="text-2xl font-semibold mb-4 mt-8 text-gray-800">Get Involved</h2>
-        <p className="text-gray-700">
-          Create an account and start submitting checklists! Your observations contribute to our
-          understanding of snail biodiversity in Belgium.
-        </p>
-      </div>
+      <h1 className="title is-3 has-text-weight-bold mb-4">{t('contact.title')}</h1>
+
+      <p className="mb-4">{t('contact.invite')}</p>
+
+      <p>
+        <strong>Email:</strong>{' '}
+        <a href="mailto:yolan2@outlook.com?subject=Tandonia%20News%20Submission">yolan2@outlook.com</a>
+      </p>
+
+      <p className="help-note mt-3">{t('contact.instructions')}</p>
     </div>
   );
 };
@@ -283,13 +393,14 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
       setLoading(false);
     }
   };
+  const { t } = useTranslation();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">
-            {isRegister ? 'Register' : 'Login'}
+            {isRegister ? t('auth.register') : t('auth.login')}
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X size={24} />
@@ -305,7 +416,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
         <div>
           {isRegister && (
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Name</label>
+              <label className="block text-gray-700 mb-2">{t('auth.name')}</label>
               <input
                 type="text"
                 value={name}
@@ -317,7 +428,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           )}
           
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Email</label>
+              <label className="block text-gray-700 mb-2">{t('auth.email')}</label>
             <input
               type="email"
               value={email}
@@ -328,7 +439,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2">Password</label>
+            <label className="block text-gray-700 mb-2">{t('auth.password')}</label>
             <input
               type="password"
               value={password}
@@ -343,7 +454,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
             disabled={loading}
             className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:bg-gray-400"
           >
-            {loading ? 'Processing...' : (isRegister ? 'Register' : 'Login')}
+            {loading ? t('auth.processing') : (isRegister ? t('auth.register') : t('auth.login'))}
           </button>
         </div>
         
@@ -353,8 +464,129 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
             className="text-green-600 hover:text-green-700"
             disabled={loading}
           >
-            {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
+            {isRegister ? `${t('auth.login')}?` : `${t('auth.register')}?`}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LoginPage = ({ onSuccess }: any) => {
+  const auth = React.useContext(AuthContext);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
+
+  const handleSubmit = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await auth.login(email, password);
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto">
+      <div className="box">
+        <h2 className="title is-4 mb-4">{t('auth.login')}</h2>
+
+        {error && <div className="notification is-danger">{error}</div>}
+
+        <div className="field">
+          <label className="label">{t('auth.email')}</label>
+          <div className="control">
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label className="label">{t('auth.password')}</label>
+          <div className="control">
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <div className="control">
+            <button className="button is-primary" onClick={handleSubmit} disabled={loading}>{loading ? t('auth.processing') : t('auth.login')}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RegisterPage = ({ onSuccess }: any) => {
+  const auth = React.useContext(AuthContext);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const { t } = useTranslation();
+
+  const handleSubmit = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const data = await auth.register(email, password, name);
+      if (!data.session) {
+        // registration requires email confirmation
+        setRegistered(true);
+        return;
+      }
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto">
+      <div className="box">
+        <h2 className="title is-4 mb-4">{t('auth.register')}</h2>
+
+        {error && <div className="notification is-danger">{error}</div>}
+        {registered && (
+          <div className="notification is-info">Registration successful — please check your email to confirm your account before logging in.</div>
+        )}
+
+        <div className="field">
+          <label className="label">{t('auth.name')}</label>
+          <div className="control">
+            <input className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label className="label">{t('auth.email')}</label>
+          <div className="control">
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <label className="label">{t('auth.password')}</label>
+          <div className="control">
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="field">
+          <div className="control">
+            <button className="button is-primary" onClick={handleSubmit} disabled={loading}>{loading ? t('auth.processing') : t('auth.register')}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -641,147 +873,98 @@ const ChecklistPage = ({ user }: any) => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">Submit Checklist</h1>
-      
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-          {selectedGrid ? 'Add Locations' : 'Step 1: Select Grid Cell'}
-        </h2>
-        <Map 
-          onGridSelect={handleGridSelect} 
-          selectedGrid={selectedGrid}
-          onLocationSelect={handleLocationSelect}
-          mode={locationMode}
-        />
-      </div>
+  <h1 className="title is-3 has-text-weight-bold mb-4">{t('checklist.title')}</h1>
+      <p className="help-note mb-4">Follow the steps: pick a grid cell, add habitat locations on the map, then record species counts.</p>
 
-      {selectedGrid && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800">Step 2: Add Habitat Locations</h3>
-          <p className="text-gray-600 mb-4">Click on the map to add location markers for each habitat type</p>
-          
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <button
-              onClick={() => setLocationMode('forest')}
-              disabled={locations.forest}
-              className={`p-4 rounded-lg border-2 ${
-                locations.forest 
-                  ? 'bg-green-100 border-green-600' 
-                  : 'border-gray-300 hover:border-green-600'
-              } ${locationMode === 'forest' ? 'ring-2 ring-green-600' : ''}`}
-            >
-              <div className="font-semibold">Forest</div>
-              {locations.forest && <div className="text-sm text-green-600">✓ Added</div>}
-            </button>
-            
-            <button
-              onClick={() => setLocationMode('swamp')}
-              disabled={locations.swamp}
-              className={`p-4 rounded-lg border-2 ${
-                locations.swamp 
-                  ? 'bg-blue-100 border-blue-600' 
-                  : 'border-gray-300 hover:border-blue-600'
-              } ${locationMode === 'swamp' ? 'ring-2 ring-blue-600' : ''}`}
-            >
-              <div className="font-semibold">Swamp</div>
-              {locations.swamp && <div className="text-sm text-blue-600">✓ Added</div>}
-            </button>
-            
-            <button
-              onClick={() => setLocationMode('anthropogenous')}
-              disabled={locations.anthropogenous}
-              className={`p-4 rounded-lg border-2 ${
-                locations.anthropogenous 
-                  ? 'bg-red-100 border-red-600' 
-                  : 'border-gray-300 hover:border-red-600'
-              } ${locationMode === 'anthropogenous' ? 'ring-2 ring-red-600' : ''}`}
-            >
-              <div className="font-semibold">Anthropogenous</div>
-              {locations.anthropogenous && <div className="text-sm text-red-600">✓ Added</div>}
-            </button>
-          </div>
+      <div className="checklist-container">
+        <div className="checklist-left">
+          <div className="map-card">
+            <h3 className="is-size-5 has-text-weight-semibold mb-3">{selectedGrid ? t('checklist.add_locations') : t('checklist.step1')}</h3>
+            <Map 
+              onGridSelect={handleGridSelect} 
+              selectedGrid={selectedGrid}
+              onLocationSelect={handleLocationSelect}
+              mode={locationMode}
+            />
 
-          <div>
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Step 3: Species Abundance</h3>
-            
-            {loading ? (
-              <div className="text-center py-8 text-gray-600">Loading species...</div>
-            ) : (
-              <div>
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Zoek op Nederlandse of Latijnse naam..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  />
-                  <p className="text-sm text-gray-500 mt-2">
-                    {filteredSpecies.length} van {speciesList.length} soorten getoond
-                    {searchTerm && ` (gefilterd op "${searchTerm}")`}
-                  </p>
+            {selectedGrid && (
+              <div style={{ marginTop: 10 }}>
+                <div className="mb-3">
+                  <strong>Selected grid:</strong> {selectedGrid}
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 max-h-96 overflow-y-auto p-4 bg-gray-50 rounded-lg">
-                  {filteredSpecies.length === 0 ? (
-                    <div className="col-span-2 text-center py-8 text-gray-500">
-                      Geen soorten gevonden voor "{searchTerm}"
-                    </div>
-                  ) : (
-                    filteredSpecies.map((sp) => {
-                      return (
-                        <div key={sp.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:border-green-500 transition">
-                          <div className="flex-1">
-                            <div className="text-sm font-semibold text-gray-800">{sp.dutch_name}</div>
-                            <div className="text-xs text-gray-500 italic">{sp.scientific_name}</div>
-                            <div className="text-xs text-gray-400 mt-1">{sp.observation_count} waarnemingen</div>
-                          </div>
-                          <input
-                            type="number"
-                            min="0"
-                            value={species[sp.id] || 0}
-                            onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))}
-                            className="w-20 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-center font-semibold"
-                          />
-                        </div>
-                      );
-                    })
-                  )}
+
+                <div className="habitat-buttons">
+                  <div className="buttons">
+                    <button className={`button is-outlined ${locations.forest ? 'is-success' : ''}`} onClick={() => setLocationMode('forest')} disabled={locations.forest}>Forest {locations.forest && '✓'}</button>
+                    <button className={`button is-outlined ${locations.swamp ? 'is-info' : ''}`} onClick={() => setLocationMode('swamp')} disabled={locations.swamp}>Swamp {locations.swamp && '✓'}</button>
+                    <button className={`button is-outlined ${locations.anthropogenous ? 'is-danger' : ''}`} onClick={() => setLocationMode('anthropogenous')} disabled={locations.anthropogenous}>Anthropogenous {locations.anthropogenous && '✓'}</button>
+                  </div>
                 </div>
+
+                <p className="help-note mt-3">Click on the map to add locations for the selected habitat type.</p>
               </div>
             )}
-
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">
-                Time Spent (minutes)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={timeSpent}
-                onChange={(e) => setTimeSpent(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600"
-              />
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition text-lg font-semibold"
-            >
-              Submit Checklist
-            </button>
           </div>
         </div>
-      )}
+
+        <div className="checklist-right">
+          <div className="box">
+            <h3 className="is-size-5 has-text-weight-semibold mb-3">{t('checklist.step3')}</h3>
+            {loading ? (
+              <div className="has-text-centered py-6">Loading species...</div>
+            ) : (
+              <>
+                <div className="field">
+                  <div className="control">
+                    <input className="input" type="text" placeholder="Zoek op Nederlandse of Latijnse naam..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  </div>
+                  <p className="help-note mt-2">{filteredSpecies.length} van {speciesList.length} soorten getoond {searchTerm && ` (gefilterd op "${searchTerm}")`}</p>
+                </div>
+
+                <div className="species-list box">
+                  {filteredSpecies.length === 0 ? (
+                    <div className="has-text-centered py-4">Geen soorten gevonden voor "{searchTerm}"</div>
+                  ) : (
+                    filteredSpecies.map((sp) => (
+                      <div key={sp.id} className="species-item">
+                        <div>
+                          <div className="name">{sp.dutch_name}</div>
+                          <div className="is-size-7 has-text-grey">{sp.scientific_name} · {sp.observation_count} waarnemingen</div>
+                        </div>
+                        <div>
+                          <input className="input" type="number" min="0" value={species[sp.id] || 0} onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))} />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="field mt-4">
+                  <label className="label">Time Spent (minutes)</label>
+                  <div className="control">
+                    <input className="input" type="number" min="1" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="submit-row">
+                  <button className="button is-primary is-medium" onClick={handleSubmit}>{t('checklist.submit')}</button>
+                  <div className="help-note">Make sure you added at least one location and filled species counts as needed.</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('news');
-  const [showLogin, setShowLogin] = useState(false);
+  // navigation state handles SPA pages, including auth pages
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const auth = useAuth();
+  const { t, i18n } = useTranslation();
 
   // If the user clicked a confirmation link (which supplies an access_token in the URL fragment),
   // Supabase requires the SPA to parse the fragment and set the session. getSessionFromUrl() will
@@ -839,23 +1022,36 @@ const App = () => {
 
             <div className={`navbar-menu ${mobileMenuOpen ? 'is-active' : ''}`}>
               <div className="navbar-start">
-                <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>News</a>
-                <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>About</a>
-                <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>Submit Checklist</a>
+                <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>{t('nav.news')}</a>
+                <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>{t('nav.about')}</a>
+                <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>{t('nav.checklist')}</a>
+                <a className={`navbar-item ${currentPage === 'contact' ? 'is-active' : ''}`} onClick={() => setCurrentPage('contact')}>{t('nav.contact')}</a>
               </div>
 
               <div className="navbar-end">
                 <div className="navbar-item">
-                  {auth.user ? (
-                    <div className="buttons is-right">
-                      <span className="tag is-light">{auth.user.email}</span>
-                      <button className="button is-light" onClick={auth.logout}><LogOut size={16} style={{ marginRight: 8 }} />Logout</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div>
+                      <div className="select">
+                        <select value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)}>
+                          <option value="nl">NL</option>
+                          <option value="en">EN</option>
+                          <option value="fr">FR</option>
+                        </select>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="buttons">
-                      <button className="button is-link" onClick={() => setShowLogin(true)}><LogIn size={16} style={{ marginRight: 8 }} />Login</button>
-                    </div>
-                  )}
+
+                    {auth.user ? (
+                      <div className="buttons is-right">
+                        <span className="tag is-light">{auth.user.email}</span>
+                        <button className="button is-light" onClick={auth.logout}><LogOut size={16} style={{ marginRight: 8 }} />{t('nav.logout')}</button>
+                      </div>
+                    ) : (
+                      <div className="buttons">
+                          <button className="button is-link" onClick={() => setCurrentPage('login')}><LogIn size={16} style={{ marginRight: 8 }} />{t('nav.login')}</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -865,18 +1061,14 @@ const App = () => {
         <section className="section" style={{ paddingTop: '4.5rem' }}>
           <div className="container">
             {currentPage === 'news' && <NewsPage />}
-            {currentPage === 'about' && <AboutPage />}
+            {currentPage === 'about' && <AboutPage onNavigate={setCurrentPage} />}
             {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
+            {currentPage === 'contact' && <ContactPage />}
+            {currentPage === 'login' && <LoginPage onSuccess={() => setCurrentPage('news')} />}
+            {currentPage === 'register' && <RegisterPage onSuccess={() => setCurrentPage('news')} />}
           </div>
         </section>
 
-        {showLogin && (
-          <LoginModal
-            onClose={() => setShowLogin(false)}
-            onLogin={auth.login}
-            onRegister={auth.register}
-          />
-        )}
       </div>
     </AuthContext.Provider>
   );

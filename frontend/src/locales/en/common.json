@@ -1,0 +1,49 @@
+{
+  "nav": {
+    "news": "News",
+    "about": "About",
+    "checklist": "Submit Checklist",
+    "contact": "Contact",
+    "login": "Login",
+    "logout": "Logout",
+    "get_involved": "Get Involved"
+  },
+  "news": {
+    "title": "Tandonia News",
+    "subtitle": "Updates, features and project milestones.",
+    "by": "By {{author}}",
+    "license": "License: {{license}}",
+    "read_more": "Read more"
+  },
+  "contact": {
+    "title": "Contact",
+    "invite": "Have news to share? Send your news items, images and dates to the email below. We'll review and post them.",
+    "instructions": "Please include a short summary, suggested publish date and any images (attachments or links)."
+  },
+  "about": {
+    "title": "About Tandonia",
+    "stats": {
+      "checklists": "Checklists",
+      "visited_grid_cells": "Visited grid cells",
+      "coverage": "Coverage"
+    },
+    "overview": "The Tandonia project aims to monitor and document slug and snail populations across Belgium.",
+    "how_it_works": "Volunteers select a grid cell on the map and record observations from three habitat types: forest, swamp and anthropogenous areas.",
+  "get_involved": ""
+  },
+  "checklist": {
+    "title": "Submit Checklist",
+    "step1": "Step 1: Select Grid Cell",
+    "add_locations": "Add Locations",
+    "step3": "Step 3: Species Abundance",
+    "submit": "Submit Checklist"
+  },
+  "auth": {
+    "register": "Register",
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "processing": "Processing..."
+  }
+}
