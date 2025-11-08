@@ -186,41 +186,43 @@ const NewsPage = () => {
       date: '2025-11-01',
       title: 'Tandonia Project Launch',
       content: 'Welcome to the Tandonia snail monitoring project! We are collecting data on slug and snail species across Belgium.',
-      image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=800&q=80'
+      image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=1200&q=80'
     },
     {
       date: '2025-10-15',
       title: 'Database Updates',
       content: 'Our database has been updated to support more detailed habitat information.',
-      image_url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&q=80'
+      image_url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=1200&q=80'
     },
     {
       date: '2025-10-01',
       title: 'New Grid System',
       content: 'Belgium is now divided into 10x10km grid cells for systematic monitoring.',
-      image_url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?w=800&q=80'
+      image_url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?w=1200&q=80'
     }
   ];
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-4xl font-bold mb-8 text-gray-800">Tandonia News</h1>
-      <div className="space-y-6">
+      <h1 className="title is-2 has-text-weight-bold mb-6">Tandonia News</h1>
+      <p className="subtitle is-6 mb-5">Updates, features and project milestones — presented as a clean timeline.</p>
+
+      <div className="timeline">
         {newsItems.map((item, idx) => (
-          <div key={idx} className="bg-white rounded-lg shadow-md overflow-hidden border-l-4 border-green-600">
+          <article key={idx} className="timeline-item">
+            <div className="timeline-date">{item.date}</div>
             {item.image_url && (
-              <img 
-                src={item.image_url} 
-                alt={item.title}
-                className="w-full h-64 object-cover"
-              />
+              <img src={item.image_url} alt={item.title} className="timeline-image" />
             )}
-            <div className="p-6">
-              <div className="text-sm text-gray-500 mb-2">{item.date}</div>
-              <h2 className="text-2xl font-semibold mb-3 text-gray-800">{item.title}</h2>
-              <p className="text-gray-700">{item.content}</p>
+
+            <h3 className="timeline-title">{item.title}</h3>
+            <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content}</p>
+
+            <div style={{ marginTop: 10 }}>
+              <button className="button is-small is-outlined is-primary">Read more</button>
+              <span style={{ marginLeft: 10 }} className="tag is-light">Updates</span>
             </div>
-          </div>
+          </article>
         ))}
       </div>
     </div>
