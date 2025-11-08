@@ -1,0 +1,42 @@
+{
+  "nav": {
+    "news": "Nieuws",
+    "about": "Over",
+    "checklist": "Checklist Indienen",
+    "contact": "Contact",
+    "login": "Inloggen",
+    "logout": "Uitloggen",
+    "get_involved": "Doe mee"
+  },
+  "news": {
+    "title": "Tandonia Nieuws",
+    "subtitle": "Updates, functies en mijlpalen — gepresenteerd als een overzichtelijke tijdlijn.",
+    "read_more": "Lees meer"
+  },
+  "contact": {
+    "title": "Contact",
+    "invite": "Heb je nieuws om te delen? Stuur je nieuwsitems, afbeeldingen en datum naar het onderstaande e-mailadres. We bekijken ze en plaatsen ze indien passend.",
+    "instructions": "Voeg een korte samenvatting toe, een voorgestelde publicatiedatum en eventuele afbeeldingen (bijlagen of links)."
+  },
+  "about": {
+    "title": "Over Tandonia",
+    "overview": "Het Tandonia-project wil slak- en weekdiersoorten in België monitoren en documenteren.",
+    "how_it_works": "Vrijwilligers kiezen een rastercel op de kaart en registreren waarnemingen in drie habitattypen: bos, moeras en antropogeen.",
+    "get_involved": "Maak een account aan en begin met het indienen van checklists!"
+  },
+  "checklist": {
+    "title": "Checklist Indienen",
+    "step1": "Stap 1: Kies Rastercel",
+    "add_locations": "Locaties Toevoegen",
+    "step3": "Stap 3: Aantal per Soort",
+    "submit": "Checklist Indienen"
+  },
+  "auth": {
+    "register": "Registreren",
+    "login": "Inloggen",
+    "email": "E-mail",
+    "password": "Wachtwoord",
+    "name": "Naam",
+    "processing": "Bezig..."
+  }
+}

@@ -309,6 +309,25 @@ const AboutPage = () => {
   );
 };
 
+const ContactPage = () => {
+  const { t } = useTranslation();
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <h1 className="title is-3 has-text-weight-bold mb-4">{t('contact.title')}</h1>
+
+      <p className="mb-4">{t('contact.invite')}</p>
+
+      <p>
+        <strong>Email:</strong>{' '}
+        <a href="mailto:ytolan2@outlook.com?subject=Tandonia%20News%20Submission">ytolan2@outlook.com</a>
+      </p>
+
+      <p className="help-note mt-3">{t('contact.instructions')}</p>
+    </div>
+  );
+};
+
 const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -845,6 +864,7 @@ const App = () => {
                 <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>{t('nav.news')}</a>
                 <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>{t('nav.about')}</a>
                 <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>{t('nav.checklist')}</a>
+                <a className={`navbar-item ${currentPage === 'contact' ? 'is-active' : ''}`} onClick={() => setCurrentPage('contact')}>{t('nav.contact')}</a>
               </div>
 
               <div className="navbar-end">
@@ -882,6 +902,7 @@ const App = () => {
             {currentPage === 'news' && <NewsPage />}
             {currentPage === 'about' && <AboutPage />}
             {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
+            {currentPage === 'contact' && <ContactPage />}
           </div>
         </section>
 
