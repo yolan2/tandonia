@@ -1,18 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Menu, X, LogIn, LogOut, User, FileText, Home, Info } from 'lucide-react';
-
-// Supabase client configuration
-// Add this script tag to your HTML: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-const getSupabaseClient = () => {
-  if (typeof window !== 'undefined' && window.supabase) {
-    // Replace with your actual Supabase URL and anon key
-    const SUPABASE_URL = 'https://your-project.supabase.co';
-    const SUPABASE_ANON_KEY = 'your-anon-key';
-    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-  return null;
-};
+import { supabase } from './src/lib/supabase';
 
 // Auth context using Supabase Auth
 const AuthContext = React.createContext(null);
@@ -20,7 +9,7 @@ const AuthContext = React.createContext(null);
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const supabase = getSupabaseClient();
+  
   
   useEffect(() => {
     if (!supabase) return;
