@@ -133,22 +133,41 @@ const useAuth = () => {
     });
     
     if (error) throw error;
-    
-    // Sync user to local database
-    if (data.user) {
-      await fetch(`${API_BASE}/api/auth/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          email: data.user.email,
-          name: name
-        })
-      });
+    // If there is no session yet (email confirmation flow), don't attempt to sync to the backend now.
+    // Trying to sync without a valid access token can cause network/CORS issues or 401s and will
+    // surface as "Failed to fetch" in the browser if the network is blocked.
+    if (!data.session?.access_token) {
+      console.log('Signup requires email confirmation; backend sync deferred until user confirms via email.');
+      return data;
     }
-    
+
+    // Sync user to local database when we have an access token
+    if (data.user) {
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            email: data.user.email,
+            name: name
+          })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '<no-body>');
+          console.warn('Auth sync returned non-OK status', res.status, txt);
+        }
+      } catch (err) {
+        // Network or CORS error
+        console.error('Auth sync fetch failed', err);
+        // Surface a friendly error to the caller while keeping the signup itself successful
+        throw new Error('Registration succeeded but syncing account to backend failed (network error). Please try logging in after confirming your email.');
+      }
+    }
+
     return data;
   };
 
