@@ -13,6 +13,7 @@ const API_BASE = (
   'https://api.tandonia.be'
 ).replace(/\/$/, '');
 import { MapPin, Menu, X, LogIn, LogOut, User, FileText, Home, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Supabase client configuration
 // Prefer using Vite env vars: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
@@ -202,10 +203,11 @@ const NewsPage = () => {
     }
   ];
 
+  const { t } = useTranslation();
+
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="title is-2 has-text-weight-bold mb-6">Tandonia News</h1>
-      <p className="subtitle is-6 mb-5">Updates, features and project milestones — presented as a clean timeline.</p>
+  {/* Title removed per user request */}
 
       <div className="timeline">
         {newsItems.map((item, idx) => (
@@ -219,8 +221,7 @@ const NewsPage = () => {
             <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content}</p>
 
             <div style={{ marginTop: 10 }}>
-              <button className="button is-small is-outlined is-primary">Read more</button>
-              <span style={{ marginLeft: 10 }} className="tag is-light">Updates</span>
+              <button className="button is-small is-outlined is-primary">{t('news.read_more')}</button>
             </div>
           </article>
         ))}
@@ -230,28 +231,26 @@ const NewsPage = () => {
 };
 
 const AboutPage = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="max-w-6xl mx-auto">
       <section className="about-hero mb-6">
         <div className="columns is-vcentered">
           <div className="column is-6">
-            <h1 className="title is-2 has-text-weight-bold">About Tandonia</h1>
-            <p className="subtitle is-6 mb-4">Citizen science for snails and slugs — collect observations, map habitats, and help conservation across Belgium.</p>
+            <h1 className="title is-2 has-text-weight-bold">{t('about.title')}</h1>
+            <p className="subtitle is-6 mb-4">{t('about.overview')}</p>
 
             <div className="content">
-              <h3 className="is-size-5 has-text-weight-semibold">Project Overview</h3>
-              <p>The Tandonia project aims to monitor and document slug and snail populations across Belgium. By collecting systematic data in 10x10km grid cells, we can track species distribution and abundance over time.</p>
+              <h3 className="is-size-5 has-text-weight-semibold">{t('about.title')}</h3>
+              <p>{t('about.overview')}</p>
 
-              <h3 className="is-size-5 has-text-weight-semibold mt-4">How it works</h3>
-              <ul>
-                <li>Choose a grid cell on the map</li>
-                <li>Record up to three habitat locations (forest, swamp, anthropogenous)</li>
-                <li>Submit species counts and optional notes</li>
-              </ul>
+              <h3 className="is-size-5 has-text-weight-semibold mt-4">{t('about.how_it_works')}</h3>
+              <p>{t('about.how_it_works')}</p>
 
               <div style={{ marginTop: 16 }}>
-                <button className="button is-primary is-medium">Get Involved</button>
-                <button className="button is-light is-medium" style={{ marginLeft: 10 }}>Read the guide</button>
+                <button className="button is-primary is-medium">{t('nav.get_involved')}</button>
+                <button className="button is-light is-medium" style={{ marginLeft: 10 }}>{t('about.get_involved')}</button>
               </div>
             </div>
           </div>
@@ -335,13 +334,14 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
       setLoading(false);
     }
   };
+  const { t } = useTranslation();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">
-            {isRegister ? 'Register' : 'Login'}
+            {isRegister ? t('auth.register') : t('auth.login')}
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X size={24} />
@@ -357,7 +357,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
         <div>
           {isRegister && (
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Name</label>
+              <label className="block text-gray-700 mb-2">{t('auth.name')}</label>
               <input
                 type="text"
                 value={name}
@@ -369,7 +369,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           )}
           
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Email</label>
+              <label className="block text-gray-700 mb-2">{t('auth.email')}</label>
             <input
               type="email"
               value={email}
@@ -380,7 +380,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2">Password</label>
+            <label className="block text-gray-700 mb-2">{t('auth.password')}</label>
             <input
               type="password"
               value={password}
@@ -395,7 +395,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
             disabled={loading}
             className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:bg-gray-400"
           >
-            {loading ? 'Processing...' : (isRegister ? 'Register' : 'Login')}
+            {loading ? t('auth.processing') : (isRegister ? t('auth.register') : t('auth.login'))}
           </button>
         </div>
         
@@ -405,7 +405,7 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
             className="text-green-600 hover:text-green-700"
             disabled={loading}
           >
-            {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
+            {isRegister ? `${t('auth.login')}?` : `${t('auth.register')}?`}
           </button>
         </div>
       </div>
@@ -693,13 +693,13 @@ const ChecklistPage = ({ user }: any) => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <h1 className="title is-3 has-text-weight-bold mb-4">Submit Checklist</h1>
+  <h1 className="title is-3 has-text-weight-bold mb-4">{t('checklist.title')}</h1>
       <p className="help-note mb-4">Follow the steps: pick a grid cell, add habitat locations on the map, then record species counts.</p>
 
       <div className="checklist-container">
         <div className="checklist-left">
           <div className="map-card">
-            <h3 className="is-size-5 has-text-weight-semibold mb-3">{selectedGrid ? 'Add Locations' : 'Step 1: Select Grid Cell'}</h3>
+            <h3 className="is-size-5 has-text-weight-semibold mb-3">{selectedGrid ? t('checklist.add_locations') : t('checklist.step1')}</h3>
             <Map 
               onGridSelect={handleGridSelect} 
               selectedGrid={selectedGrid}
@@ -729,7 +729,7 @@ const ChecklistPage = ({ user }: any) => {
 
         <div className="checklist-right">
           <div className="box">
-            <h3 className="is-size-5 has-text-weight-semibold mb-3">Step 2: Species Abundance</h3>
+            <h3 className="is-size-5 has-text-weight-semibold mb-3">{t('checklist.step3')}</h3>
             {loading ? (
               <div className="has-text-centered py-6">Loading species...</div>
             ) : (
@@ -767,7 +767,7 @@ const ChecklistPage = ({ user }: any) => {
                 </div>
 
                 <div className="submit-row">
-                  <button className="button is-primary is-medium" onClick={handleSubmit}>Submit Checklist</button>
+                  <button className="button is-primary is-medium" onClick={handleSubmit}>{t('checklist.submit')}</button>
                   <div className="help-note">Make sure you added at least one location and filled species counts as needed.</div>
                 </div>
               </>
@@ -784,6 +784,7 @@ const App = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const auth = useAuth();
+  const { t, i18n } = useTranslation();
 
   // If the user clicked a confirmation link (which supplies an access_token in the URL fragment),
   // Supabase requires the SPA to parse the fragment and set the session. getSessionFromUrl() will
@@ -841,23 +842,35 @@ const App = () => {
 
             <div className={`navbar-menu ${mobileMenuOpen ? 'is-active' : ''}`}>
               <div className="navbar-start">
-                <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>News</a>
-                <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>About</a>
-                <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>Submit Checklist</a>
+                <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>{t('nav.news')}</a>
+                <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>{t('nav.about')}</a>
+                <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>{t('nav.checklist')}</a>
               </div>
 
               <div className="navbar-end">
                 <div className="navbar-item">
-                  {auth.user ? (
-                    <div className="buttons is-right">
-                      <span className="tag is-light">{auth.user.email}</span>
-                      <button className="button is-light" onClick={auth.logout}><LogOut size={16} style={{ marginRight: 8 }} />Logout</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div>
+                      <div className="select">
+                        <select value={i18n.language} onChange={(e) => i18n.changeLanguage(e.target.value)}>
+                          <option value="nl">NL</option>
+                          <option value="en">EN</option>
+                          <option value="fr">FR</option>
+                        </select>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="buttons">
-                      <button className="button is-link" onClick={() => setShowLogin(true)}><LogIn size={16} style={{ marginRight: 8 }} />Login</button>
-                    </div>
-                  )}
+
+                    {auth.user ? (
+                      <div className="buttons is-right">
+                        <span className="tag is-light">{auth.user.email}</span>
+                        <button className="button is-light" onClick={auth.logout}><LogOut size={16} style={{ marginRight: 8 }} />{t('nav.logout')}</button>
+                      </div>
+                    ) : (
+                      <div className="buttons">
+                        <button className="button is-link" onClick={() => setShowLogin(true)}><LogIn size={16} style={{ marginRight: 8 }} />{t('nav.login')}</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
