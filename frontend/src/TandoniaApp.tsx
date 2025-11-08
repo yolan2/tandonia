@@ -831,8 +831,6 @@ const App = () => {
 
 export default App;
 
-curl.exe -i https://api.tandonia.be/health
 
-cd frontend
-npm run build
-npm run preview   # or serve the dist folder
+
+
