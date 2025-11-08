@@ -287,8 +287,7 @@ const AboutPage = ({ onNavigate }: any) => {
               <p>{t('about.how_it_works')}</p>
 
                 <div style={{ marginTop: 16 }}>
-                  <button className="button is-primary is-medium" onClick={() => onNavigate && onNavigate('register')}>{t('nav.get_involved')}</button>
-                  <button className="button is-light is-medium" style={{ marginLeft: 10 }}>{t('about.get_involved')}</button>
+                  <button className="button is-primary is-medium" onClick={() => onNavigate && onNavigate('register')}>{t('auth.register')}</button>
                 </div>
             </div>
           </div>
@@ -337,7 +336,7 @@ const ContactPage = () => {
 
       <p>
         <strong>Email:</strong>{' '}
-        <a href="mailto:ytolan2@outlook.com?subject=Tandonia%20News%20Submission">ytolan2@outlook.com</a>
+        <a href="mailto:yolan2@outlook.com?subject=Tandonia%20News%20Submission">yolan2@outlook.com</a>
       </p>
 
       <p className="help-note mt-3">{t('contact.instructions')}</p>
