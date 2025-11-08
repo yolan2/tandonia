@@ -182,56 +182,80 @@ const useAuth = () => {
 };
 
 const NewsPage = () => {
-  const newsItems = [
-    {
-      date: '2025-11-01',
-      title: 'Tandonia Project Launch',
-      content: 'Welcome to the Tandonia snail monitoring project! We are collecting data on slug and snail species across Belgium.',
-      image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=1200&q=80',
-      author: 'Y. Tolan',
-      license: 'CC BY-SA 4.0'
-    },
-    {
-      date: '2025-10-15',
-      title: 'Database Updates',
-      content: 'Our database has been updated to support more detailed habitat information.',
-      image_url: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=1200&q=80',
-      author: 'Database Team',
-      license: 'Public Domain'
-    },
-    {
-      date: '2025-10-01',
-      title: 'New Grid System',
-      content: 'Belgium is now divided into 10x10km grid cells for systematic monitoring.',
-      image_url: 'https://images.unsplash.com/photo-1569163139394-de4798aa62b6?w=1200&q=80',
-      author: 'Survey Team',
-      license: 'CC0'
-    }
-  ];
-
   const { t } = useTranslation();
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadFromApi = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/news`);
+        if (!res.ok) throw new Error('no-api');
+        const data = await res.json();
+        if (!mounted) return;
+        setItems(Array.isArray(data) ? data : []);
+        setLoading(false);
+        return true;
+      } catch (err) {
+        // API not available or returned error — fall back to Supabase if available
+        return false;
+      }
+    };
+
+    const loadFromSupabase = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) throw new Error('no-supabase');
+        const { data, error } = await supabase.from('news').select('*').order('date', { ascending: false });
+        if (error) throw error;
+        if (!mounted) return;
+        setItems(data ?? []);
+        setLoading(false);
+        return true;
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || 'Failed to load news');
+        setLoading(false);
+        return false;
+      }
+    };
+
+    (async () => {
+      const ok = await loadFromApi();
+      if (!ok) await loadFromSupabase();
+    })();
+
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) return <div className="max-w-4xl mx-auto">{t('news.reading') || 'Loading...'}</div>;
+  if (error) return <div className="max-w-4xl mx-auto has-text-danger">{error}</div>;
 
   return (
     <div className="max-w-4xl mx-auto">
-  {/* Title removed per user request */}
-
       <div className="timeline">
-        {newsItems.map((item, idx) => (
-          <article key={idx} className="timeline-item">
-            <div className="timeline-date">{item.date}</div>
+        {items.map((item: any, idx: number) => (
+          <article key={item.id ?? idx} className="timeline-item">
+            <div className="timeline-date">{item.date || item.published_at || ''}</div>
+
             {item.image_url && (
               <figure>
                 <img src={item.image_url} alt={item.title} className="timeline-image" />
-                <figcaption className="is-size-7 has-text-grey mt-2">
-                  {item.author ? t('news.by', { author: item.author }) : null}
-                  {item.author && item.license ? ' · ' : ''}
-                  {item.license ? t('news.license', { license: item.license }) : null}
-                </figcaption>
+                {(item.author || item.license) && (
+                  <figcaption className="is-size-7 has-text-grey mt-2">
+                    {item.author ? t('news.by', { author: item.author }) : null}
+                    {item.author && item.license ? ' · ' : ''}
+                    {item.license ? t('news.license', { license: item.license }) : null}
+                  </figcaption>
+                )}
               </figure>
             )}
 
             <h3 className="timeline-title">{item.title}</h3>
-            <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content}</p>
+            <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content || item.body || item.excerpt}</p>
 
             <div style={{ marginTop: 10 }}>
               <button className="button is-small is-outlined is-primary">{t('news.read_more')}</button>
