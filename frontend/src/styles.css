@@ -1,0 +1,3 @@
+/* minimal reset so the app looks OK */
+html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial; background: #f7fafc }
+.max-w-7xl { max-width: 80rem; margin-left: auto; margin-right: auto }
