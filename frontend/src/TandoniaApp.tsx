@@ -33,6 +33,85 @@ function getSupabaseClient() {
   return _supabaseClient;
 }
 
+// Minimal Auth context + hook used by the app. The app expects an object
+// with { user, login, logout, register, loading, getAccessToken }.
+const AuthContext = React.createContext<any>(null);
+
+const useAuth = () => {
+  // Provide a simple hook that wires up Supabase auth and exposes helpers.
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    // initialize current session
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setUser(data?.session?.user ?? null);
+      } catch (err) {
+        console.warn('getSession failed', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    // subscribe to auth changes
+    let sub: any = null;
+    try {
+      const res = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+        setUser(session?.user ?? null);
+      });
+      sub = res?.data?.subscription;
+    } catch (err) {
+      console.warn('auth subscription failed', err);
+    }
+
+    return () => {
+      if (sub) sub.unsubscribe();
+    };
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase not configured');
+    const res = await supabase.auth.signInWithPassword({ email, password });
+    if (res.error) throw res.error;
+    setUser(res.data?.user ?? null);
+    return res;
+  };
+
+  const logout = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  const register = async (email: string, password: string, name?: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase not configured');
+    const res = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+    if (res.error) throw res.error;
+    // don't force-set user here; email confirmation flow may be required
+    return res;
+  };
+
+  const getAccessToken = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token ?? null;
+  };
+
+  return { user, login, logout, register, loading, getAccessToken };
+};
+
 const TandoniaApp = () => {
   const { i18n } = useTranslation();
   const [items, setItems] = useState([]);
