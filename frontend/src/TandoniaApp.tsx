@@ -23,49 +23,96 @@ const SUPABASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any)
 const SUPABASE_ANON_KEY = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY)
   || (typeof window !== 'undefined' && (window as any).__SUPABASE_ANON_KEY__) || '';
 
+
 let _supabaseClient: any = null;
-try {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('Supabase client created in frontend');
-  }
-} catch (e: any) {
-  console.warn('Could not create Supabase client in frontend:', e?.message || e);
+
+function getSupabaseClient() {
+  if (_supabaseClient) return _supabaseClient;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return _supabaseClient;
 }
 
-const getSupabaseClient = () => _supabaseClient;
-
-// Frontend origin to use for auth redirects. Prefer explicit Vite var VITE_FRONTEND_URL,
-// otherwise fallback to current location.origin (works during production on the deployed site).
-const FRONTEND_URL = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FRONTEND_URL)
-  || (typeof window !== 'undefined' && window.location && window.location.origin)
-  || 'https://tandonia-1.onrender.com';
-
-// Auth context using Supabase Auth
-const AuthContext = React.createContext<any>(null);
-
-const useAuth = () => {
-  const [user, setUser] = useState<any>(null);
+const TandoniaApp = () => {
+  const { i18n } = useTranslation();
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const supabase = getSupabaseClient();
-  
-  useEffect(() => {
-    if (!supabase) {
-      // If Supabase client isn't available in the browser, stop loading so the UI can render.
-      setLoading(false);
-      return;
-    }
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
 
-    // Check current session (handle errors so UI doesn't remain stuck)
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
+  useEffect(() => {
+    let mounted = true;
+
+    const loadFromApi = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/news?lang=${i18n.language}`);
+        if (!res.ok) throw new Error('no-api');
+        const data = await res.json();
+        if (!mounted) return;
+        setItems(Array.isArray(data) ? data : []);
         setLoading(false);
-      })
-      .catch((err: any) => {
-        console.error('supabase.getSession error', err);
+        return true;
+      } catch (err) {
+        setError(err?.message || 'Failed to load news');
         setLoading(false);
-      });
+        return false;
+      }
+    };
+
+    const loadFromSupabase = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) throw new Error('no-supabase');
+        const { data, error } = await supabase.from('news').select('*').order('date', { ascending: false });
+        if (error) throw error;
+        setItems(Array.isArray(data) ? data : []);
+        setLoading(false);
+        return true;
+      } catch (err) {
+        setError(err?.message || 'Failed to load news');
+        setLoading(false);
+        return false;
+      }
+    };
+
+    (async () => {
+      const ok = await loadFromApi();
+      if (!ok) await loadFromSupabase();
+    })();
+
+    return () => { mounted = false; };
+  }, [i18n.language]);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    let subscription = null;
+    if (supabase) {
+      try {
+        const res = supabase.auth.onAuthStateChange((_event, session) => {
+          setUser(session?.user ?? null);
+        });
+        subscription = res?.data?.subscription;
+      } catch (err) {
+        console.error('supabase.onAuthStateChange error', err);
+      }
+    }
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  // ...rest of component code...
+
+  const logout = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  // ...render logic...
+
+
 
     // Listen for auth changes
     let subscription: any = null;
@@ -78,45 +125,36 @@ const useAuth = () => {
       console.error('supabase.onAuthStateChange error', err);
     }
 
-    return () => {
-      try {
-        subscription?.unsubscribe?.();
-      } catch (_) {}
-    };
-  }, []);
-  
-  const login = async (email: string, password: string) => {
-    if (!supabase) throw new Error('Supabase not initialized');
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) throw error;
-    
-    // Sync user to local database
-    if (data.user) {
-      await fetch(`${API_BASE}/api/auth/sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${data.session.access_token}`
-        },
-        body: JSON.stringify({
-          email: data.user.email,
-          name: data.user.user_metadata?.name || data.user.email.split('@')[0]
-        })
-      });
-    }
-    
-    return data;
-  };
-  
-  const logout = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-  };
+    useEffect(() => {
+      let mounted = true;
+
+      const loadFromApi = async () => {
+        try {
+          // Pass language as query param for API translation, fallback to client translation
+          const res = await fetch(`${API_BASE}/api/news?lang=${i18n.language}`);
+          if (!res.ok) throw new Error('no-api');
+          const data = await res.json();
+          if (!mounted) return;
+          setItems(Array.isArray(data) ? data : []);
+          setLoading(false);
+          return true;
+        } catch (err) {
+          // ...existing code...
+        }
+      };
+
+      const loadFromSupabase = async () => {
+        // ...existing code...
+      };
+
+      (async () => {
+        const ok = await loadFromApi();
+        if (!ok) await loadFromSupabase();
+      })();
+
+      return () => { mounted = false; };
+    }, [i18n.language]);
+// Removed stray closing brackets and misplaced code blocks
   
   const register = async (email: string, password: string, name: string) => {
     if (!supabase) throw new Error('Supabase not initialized');
@@ -260,6 +298,259 @@ const NewsPage = () => {
             {/* Removed 'Lees meer' button as requested */}
           </article>
         ))}
+      </div>
+    </div>
+  );
+};
+
+const PillClamsIdentificationPage = () => {
+  const { t } = useTranslation();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [current, setCurrent] = useState(0);
+  const [matches, setMatches] = useState<any[]>([]);
+  const [showResult, setShowResult] = useState(false);
+  const [species, setSpecies] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const questions = [
+    { key: "plica", text: "Is a plica present?" },
+    { key: "glossy", text: "Is the shell glossy?" },
+    { key: "shape", text: "Is the shape oval to sub-triangular?" },
+    { key: "posterior_point", text: "Is the posterior part pointed?" },
+    { key: "callus_present", text: "Is there a callus present?" },
+    { key: "c4_shape", text: "Is C4 straight or slightly curved?" },
+    { key: "c2_shape", text: "Is C2 strong?" },
+    { key: "striation_regular", text: "Are the shell striations regular?" },
+    { key: "ligament_long", text: "Is the ligament long?" },
+    { key: "umbo_taal", text: "Is the umbo clearly visible?" },
+    { key: "ligamentpit_shape", text: "Is the ligament pit shape curved?" }
+  ];
+
+  // Load species data from Supabase
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSpeciesData = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          throw new Error('Supabase client not initialized');
+        }
+
+        const { data, error } = await supabase
+          .from('pill_clams')
+          .select('*')
+          .order('species', { ascending: true });
+
+        if (error) throw error;
+
+        if (!mounted) return;
+        
+        // Transform data to match expected format (image_url -> image)
+        const transformedData = (data || []).map((item: any) => ({
+          ...item,
+          image: item.image_url || 'no image'
+        }));
+        
+        setSpecies(transformedData);
+        setLoading(false);
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error('Error loading pill clam species:', err);
+        setError(err.message || 'Failed to load species data');
+        setLoading(false);
+      }
+    };
+
+    loadSpeciesData();
+
+    return () => { mounted = false; };
+  }, []);
+
+  const normalize = (value: any) => {
+    if (typeof value === 'string') {
+      value = value.toLowerCase();
+      if (value.includes("not") || value === "no" || value === "0") return "no";
+      if (value === "yes" || value === "1" || value === "present") return "yes";
+    }
+    if (value === 1 || value === "1") return "yes";
+    if (value === 0 || value === "0") return "no";
+    return "unknown";
+  };
+
+  const handleAnswer = (val: string) => {
+    const newAnswers = { ...answers, [questions[current].key]: val };
+    setAnswers(newAnswers);
+    
+    if (current + 1 < questions.length) {
+      setCurrent(current + 1);
+    } else {
+      evaluateMatches(newAnswers);
+    }
+  };
+
+  const evaluateMatches = (finalAnswers: Record<string, string>) => {
+    const filtered = species.filter(s => 
+      s.species !== "29" &&
+      questions.every(q => {
+        const a = finalAnswers[q.key];
+        const t = normalize((s as any)[q.key]);
+        return a === "unknown" || t === "unknown" || a === t;
+      })
+    );
+    setMatches(filtered);
+    setShowResult(true);
+  };
+
+  const resetQuiz = () => {
+    setAnswers({});
+    setCurrent(0);
+    setMatches([]);
+    setShowResult(false);
+  };
+
+  const question = questions[current];
+  const yesList = question ? species.filter(s =>
+    normalize((s as any)[question.key]) === "yes" && s.image && s.image !== "no image"
+  ) : [];
+  const noList = question ? species.filter(s =>
+    normalize((s as any)[question.key]) === "no" && s.image && s.image !== "no image"
+  ) : [];
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="hero is-primary mb-5">
+        <div className="hero-body">
+          <h1 className="title is-2 has-text-white">{t('identification.pillClams.title')}</h1>
+          <p className="subtitle has-text-white">{t('identification.pillClams.subtitle')}</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="box">
+          <p className="has-text-centered">{t('news.reading')}</p>
+        </div>
+      ) : error ? (
+        <div className="box">
+          <p className="has-text-danger has-text-centered">{error}</p>
+        </div>
+      ) : !showResult ? (
+        <>
+          <div className="box">
+            <h2 className="title is-4">{question?.text}</h2>
+            <div className="buttons is-centered mt-4">
+              <button className="button is-success is-medium" onClick={() => handleAnswer('yes')}>Yes</button>
+              <button className="button is-danger is-medium" onClick={() => handleAnswer('no')}>No</button>
+              <button className="button is-warning is-medium" onClick={() => handleAnswer('unknown')}>I don't know</button>
+            </div>
+            <p className="has-text-centered has-text-grey mt-3">Question {current + 1} of {questions.length}</p>
+          </div>
+
+          {yesList.length > 0 && (
+            <div className="box mt-5">
+              <h3 className="title is-5">Yes examples</h3>
+              <div className="columns is-multiline">
+                {yesList.slice(0, 3).map((s, idx) => (
+                  <div key={idx} className="column is-one-third has-text-centered">
+                    <p className="has-text-weight-semibold mb-2">Yes</p>
+                    <img src={s.image} alt={s.species} style={{ maxHeight: '300px', width: 'auto', borderRadius: '6px' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {noList.length > 0 && (
+            <div className="box mt-5">
+              <h3 className="title is-5">No examples</h3>
+              <div className="columns is-multiline">
+                {noList.slice(0, 3).map((s, idx) => (
+                  <div key={idx} className="column is-one-third has-text-centered">
+                    <p className="has-text-weight-semibold mb-2">No</p>
+                    <img src={s.image} alt={s.species} style={{ maxHeight: '300px', width: 'auto', borderRadius: '6px' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="box">
+          <h2 className="title is-4">{t('identification.pillClams.results')}</h2>
+          {matches.length > 0 ? (
+            <>
+              <p className="has-text-success mb-4">{t('identification.pillClams.possibleMatches')}</p>
+              <div className="content">
+                <ul>
+                  {matches.map((m, idx) => (
+                    <li key={idx} className="mb-2">
+                      <strong style={{ textTransform: 'capitalize' }}>{m.species}</strong>
+                      {m.image && m.image !== "no image" && (
+                        <img src={m.image} alt={m.species} style={{ maxWidth: '200px', marginLeft: '1rem', borderRadius: '6px' }} />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          ) : (
+            <p className="has-text-danger">{t('identification.pillClams.noMatches')}</p>
+          )}
+          <button className="button is-primary mt-4" onClick={resetQuiz}>{t('identification.pillClams.restart')}</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Placeholder components for other identification types
+const FreshwaterGastropodsIdentificationPage = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="hero is-primary mb-5">
+        <div className="hero-body">
+          <h1 className="title is-2 has-text-white">{t('identification.freshwaterGastropods.title')}</h1>
+          <p className="subtitle has-text-white">{t('identification.freshwaterGastropods.subtitle')}</p>
+        </div>
+      </div>
+      <div className="box">
+        <p className="has-text-centered">{t('identification.comingSoon')}</p>
+      </div>
+    </div>
+  );
+};
+
+const NajadesIdentificationPage = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="hero is-primary mb-5">
+        <div className="hero-body">
+          <h1 className="title is-2 has-text-white">{t('identification.najades.title')}</h1>
+          <p className="subtitle has-text-white">{t('identification.najades.subtitle')}</p>
+        </div>
+      </div>
+      <div className="box">
+        <p className="has-text-centered">{t('identification.comingSoon')}</p>
+      </div>
+    </div>
+  );
+};
+
+const TerrestrialGastropodsIdentificationPage = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="hero is-primary mb-5">
+        <div className="hero-body">
+          <h1 className="title is-2 has-text-white">{t('identification.terrestrialGastropods.title')}</h1>
+          <p className="subtitle has-text-white">{t('identification.terrestrialGastropods.subtitle')}</p>
+        </div>
+      </div>
+      <div className="box">
+        <p className="has-text-centered">{t('identification.comingSoon')}</p>
       </div>
     </div>
   );
@@ -962,6 +1253,7 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState('news');
   // navigation state handles SPA pages, including auth pages
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [identifyDropdownOpen, setIdentifyDropdownOpen] = useState(false);
   const auth = useAuth();
   const { t, i18n } = useTranslation();
 
@@ -1023,6 +1315,27 @@ const App = () => {
               <div className="navbar-start">
                 <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>{t('nav.news')}</a>
                 <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>{t('nav.about')}</a>
+                
+                <div className={`navbar-item has-dropdown ${identifyDropdownOpen ? 'is-active' : ''}`} onMouseEnter={() => setIdentifyDropdownOpen(true)} onMouseLeave={() => setIdentifyDropdownOpen(false)}>
+                  <a className="navbar-link">
+                    {t('nav.identify')}
+                  </a>
+                  <div className="navbar-dropdown">
+                    <a className="navbar-item" onClick={() => { setCurrentPage('identify-freshwater-gastropods'); setIdentifyDropdownOpen(false); }}>
+                      {t('identification.freshwaterGastropodsMenu')}
+                    </a>
+                    <a className="navbar-item" onClick={() => { setCurrentPage('identify-pill-clams'); setIdentifyDropdownOpen(false); }}>
+                      {t('identification.pillClamsMenu')}
+                    </a>
+                    <a className="navbar-item" onClick={() => { setCurrentPage('identify-najades'); setIdentifyDropdownOpen(false); }}>
+                      {t('identification.najadesMenu')}
+                    </a>
+                    <a className="navbar-item" onClick={() => { setCurrentPage('identify-terrestrial-gastropods'); setIdentifyDropdownOpen(false); }}>
+                      {t('identification.terrestrialGastropodsMenu')}
+                    </a>
+                  </div>
+                </div>
+
                 <a className={`navbar-item ${currentPage === 'checklist' ? 'is-active' : ''}`} onClick={() => setCurrentPage('checklist')}>{t('nav.checklist')}</a>
                 <a className={`navbar-item ${currentPage === 'contact' ? 'is-active' : ''}`} onClick={() => setCurrentPage('contact')}>{t('nav.contact')}</a>
               </div>
@@ -1063,6 +1376,10 @@ const App = () => {
             {currentPage === 'about' && <AboutPage onNavigate={setCurrentPage} />}
             {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
             {currentPage === 'contact' && <ContactPage />}
+            {currentPage === 'identify-freshwater-gastropods' && <FreshwaterGastropodsIdentificationPage />}
+            {currentPage === 'identify-pill-clams' && <PillClamsIdentificationPage />}
+            {currentPage === 'identify-najades' && <NajadesIdentificationPage />}
+            {currentPage === 'identify-terrestrial-gastropods' && <TerrestrialGastropodsIdentificationPage />}
             {currentPage === 'login' && <LoginPage onSuccess={() => setCurrentPage('news')} />}
             {currentPage === 'register' && <RegisterPage onSuccess={() => setCurrentPage('news')} />}
           </div>

@@ -314,7 +314,7 @@ app.get('/api/checklists/:id', authenticateToken, async (req, res) => {
 app.get('/api/news', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, title, content, published_date
+      SELECT id, title, content, published_date, image_url, author, license
       FROM news
       ORDER BY published_date DESC
       LIMIT 50

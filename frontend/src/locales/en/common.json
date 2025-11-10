@@ -2,10 +2,38 @@
   "nav": {
     "news": "News",
     "about": "About",
+    "identify": "Identify",
     "checklist": "Checklist",
     "contact": "Contact",
     "login": "Log in",
     "logout": "Log out"
+  },
+  "identification": {
+    "freshwaterGastropodsMenu": "Freshwater Gastropods",
+    "pillClamsMenu": "Pill Clams",
+    "najadesMenu": "Najades",
+    "terrestrialGastropodsMenu": "Terrestrial Gastropods",
+    "comingSoon": "Coming soon! This identification tool is currently under development.",
+    "freshwaterGastropods": {
+      "title": "Freshwater Gastropods Identification",
+      "subtitle": "Identify freshwater gastropod species"
+    },
+    "pillClams": {
+      "title": "Pill Clams Identification",
+      "subtitle": "Answer the following questions to narrow down your pill clam species",
+      "results": "Identification Results",
+      "possibleMatches": "Possible matches:",
+      "noMatches": "No matching species found.",
+      "restart": "Start Over"
+    },
+    "najades": {
+      "title": "Najades Identification",
+      "subtitle": "Identify najade species"
+    },
+    "terrestrialGastropods": {
+      "title": "Terrestrial Gastropods Identification",
+      "subtitle": "Identify terrestrial gastropod species"
+    }
   },
   "news": {
     "reading": "Loading news...",

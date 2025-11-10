@@ -2,10 +2,38 @@
   "nav": {
     "news": "Nieuws",
     "about": "Over",
+    "identify": "Identificeren",
     "checklist": "Checklist",
     "contact": "Contact",
     "login": "Inloggen",
     "logout": "Uitloggen"
+  },
+  "identification": {
+    "freshwaterGastropodsMenu": "Zoetwatergastropoden",
+    "pillClamsMenu": "Erwtenmossel",
+    "najadesMenu": "Najaden",
+    "terrestrialGastropodsMenu": "Landgastropoden",
+    "comingSoon": "Binnenkort beschikbaar! Deze identificatietool is momenteel in ontwikkeling.",
+    "freshwaterGastropods": {
+      "title": "Identificatie Zoetwatergastropoden",
+      "subtitle": "Identificeer zoetwatergastropoden"
+    },
+    "pillClams": {
+      "title": "Identificatie Erwtenmossel",
+      "subtitle": "Beantwoord de volgende vragen om uw erwtenmosselsoort te bepalen",
+      "results": "Identificatieresultaten",
+      "possibleMatches": "Mogelijke overeenkomsten:",
+      "noMatches": "Geen overeenkomende soorten gevonden.",
+      "restart": "Opnieuw beginnen"
+    },
+    "najades": {
+      "title": "Identificatie Najaden",
+      "subtitle": "Identificeer najadensoorten"
+    },
+    "terrestrialGastropods": {
+      "title": "Identificatie Landgastropoden",
+      "subtitle": "Identificeer landgastropodensoorten"
+    }
   },
   "news": {
     "reading": "Nieuws laden...",

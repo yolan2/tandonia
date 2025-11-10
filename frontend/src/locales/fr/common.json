@@ -2,10 +2,38 @@
   "nav": {
     "news": "Actualités",
     "about": "À propos",
+    "identify": "Identifier",
     "checklist": "Checklist",
     "contact": "Contact",
     "login": "Se connecter",
     "logout": "Se déconnecter"
+  },
+  "identification": {
+    "freshwaterGastropodsMenu": "Gastéropodes d'eau douce",
+    "pillClamsMenu": "Pisidies",
+    "najadesMenu": "Naïades",
+    "terrestrialGastropodsMenu": "Gastéropodes terrestres",
+    "comingSoon": "Bientôt disponible ! Cet outil d'identification est actuellement en cours de développement.",
+    "freshwaterGastropods": {
+      "title": "Identification des Gastéropodes d'eau douce",
+      "subtitle": "Identifier les espèces de gastéropodes d'eau douce"
+    },
+    "pillClams": {
+      "title": "Identification des Pisidies",
+      "subtitle": "Répondez aux questions suivantes pour identifier votre espèce de pisidie",
+      "results": "Résultats de l'identification",
+      "possibleMatches": "Correspondances possibles :",
+      "noMatches": "Aucune espèce correspondante trouvée.",
+      "restart": "Recommencer"
+    },
+    "najades": {
+      "title": "Identification des Naïades",
+      "subtitle": "Identifier les espèces de naïades"
+    },
+    "terrestrialGastropods": {
+      "title": "Identification des Gastéropodes terrestres",
+      "subtitle": "Identifier les espèces de gastéropodes terrestres"
+    }
   },
   "news": {
     "reading": "Chargement des actualités...",
