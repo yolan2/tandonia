@@ -470,12 +470,12 @@ const PillClamsIdentificationPage = () => {
   };
 
   const evaluateMatches = (finalAnswers: Record<string, string>) => {
-    const filtered = species.filter(s => 
-      s.species !== "29" &&
+    const filtered = species.filter(s =>
       questions.every(q => {
-        const a = finalAnswers[q.key];
+        // Treat unanswered questions as 'unknown' so partial quizzes work
+        const a = finalAnswers[q.key] ?? 'unknown';
         const t = normalize((s as any)[q.key]);
-        return a === "unknown" || t === "unknown" || a === t;
+        return a === 'unknown' || t === 'unknown' || a === t;
       })
     );
     setMatches(filtered);
@@ -502,7 +502,8 @@ const PillClamsIdentificationPage = () => {
       <div className="hero is-primary mb-5">
         <div className="hero-body">
           <h1 className="title is-2 has-text-white">{t('identification.pillClams.title')}</h1>
-          <p className="subtitle has-text-white">{t('identification.pillClams.subtitle')}</p>
+          {/* subtitle intentionally removed for identification pages */}
+            <p className="subtitle has-text-dark">{t('identification.pillClams.subtitle')}</p>
         </div>
       </div>
 
@@ -583,6 +584,91 @@ const PillClamsIdentificationPage = () => {
   );
 };
 
+const ExploreSpeciesPage = () => {
+  const { t } = useTranslation();
+  const [speciesList, setSpeciesList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        if (!supabase) throw new Error('Supabase not configured');
+        const { data, error } = await supabase.from('pill_clams').select('*').order('species', { ascending: true });
+        if (error) throw error;
+        if (!mounted) return;
+        setSpeciesList(data || []);
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error('Failed to load species', err);
+        setError(err.message || 'Failed to load species');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="box mb-6">
+        <h1 className="title is-3">{t('explore.title') || 'Explore species'}</h1>
+        <p className="subtitle">{t('explore.subtitle') || 'Click a species to view details'}</p>
+      </div>
+
+      {loading ? <div className="box">Loading…</div> : error ? <div className="box has-text-danger">{error}</div> : (
+        <div className="columns is-multiline">
+          {speciesList.map((s: any) => (
+            <div key={s.id} className="column is-one-quarter">
+              <div className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(s)}>
+                <div className="card-image">
+                  <figure className="image is-4by3">
+                    <img src={s.image_url || s.image || 'https://via.placeholder.com/300x200?text=No+image'} alt={s.species} />
+                  </figure>
+                </div>
+                <div className="card-content">
+                  <p className="title is-6">{s.species}</p>
+                  <p className="subtitle is-7">{s.author || ''}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selected && (
+        <div className="modal is-active">
+          <div className="modal-background" onClick={() => setSelected(null)}></div>
+          <div className="modal-card">
+            <header className="modal-card-head">
+              <p className="modal-card-title">{selected.species}</p>
+              <button className="delete" aria-label="close" onClick={() => setSelected(null)}></button>
+            </header>
+            <section className="modal-card-body">
+              <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6 }} />
+              <div style={{ marginTop: 12 }}>
+                <strong>Author:</strong> {selected.author || '—'}<br />
+                <strong>License:</strong> {selected.license || '—'}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <strong>Notes:</strong>
+                <div>{selected.notes || selected.description || '—'}</div>
+              </div>
+            </section>
+            <footer className="modal-card-foot">
+              <button className="button" onClick={() => setSelected(null)}>Close</button>
+            </footer>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Placeholder components for other identification types
 const FreshwaterGastropodsIdentificationPage = () => {
   const { t } = useTranslation();
@@ -591,7 +677,8 @@ const FreshwaterGastropodsIdentificationPage = () => {
       <div className="hero is-primary mb-5">
         <div className="hero-body">
           <h1 className="title is-2 has-text-white">{t('identification.freshwaterGastropods.title')}</h1>
-          <p className="subtitle has-text-white">{t('identification.freshwaterGastropods.subtitle')}</p>
+          {/* subtitle intentionally removed for identification pages */}
+            <p className="subtitle has-text-dark">{t('identification.freshwaterGastropods.subtitle')}</p>
         </div>
       </div>
       <div className="box">
@@ -608,7 +695,8 @@ const NajadesIdentificationPage = () => {
       <div className="hero is-primary mb-5">
         <div className="hero-body">
           <h1 className="title is-2 has-text-white">{t('identification.najades.title')}</h1>
-          <p className="subtitle has-text-white">{t('identification.najades.subtitle')}</p>
+          {/* subtitle intentionally removed for identification pages */}
+            <p className="subtitle has-text-dark">{t('identification.najades.subtitle')}</p>
         </div>
       </div>
       <div className="box">
@@ -625,7 +713,8 @@ const TerrestrialGastropodsIdentificationPage = () => {
       <div className="hero is-primary mb-5">
         <div className="hero-body">
           <h1 className="title is-2 has-text-white">{t('identification.terrestrialGastropods.title')}</h1>
-          <p className="subtitle has-text-white">{t('identification.terrestrialGastropods.subtitle')}</p>
+          {/* subtitle intentionally removed for identification pages */}
+            <p className="subtitle has-text-dark">{t('identification.terrestrialGastropods.subtitle')}</p>
         </div>
       </div>
       <div className="box">
@@ -1394,6 +1483,7 @@ const App = () => {
               <div className="navbar-start">
                 <a className={`navbar-item ${currentPage === 'news' ? 'is-active' : ''}`} onClick={() => setCurrentPage('news')}>{t('nav.news')}</a>
                 <a className={`navbar-item ${currentPage === 'about' ? 'is-active' : ''}`} onClick={() => setCurrentPage('about')}>{t('nav.about')}</a>
+                <a className={`navbar-item ${currentPage === 'explore' ? 'is-active' : ''}`} onClick={() => setCurrentPage('explore')}>Explore species</a>
                 
                 <div className={`navbar-item has-dropdown ${identifyDropdownOpen ? 'is-active' : ''}`} onMouseEnter={() => setIdentifyDropdownOpen(true)} onMouseLeave={() => setIdentifyDropdownOpen(false)}>
                   <a className="navbar-link">
@@ -1455,6 +1545,7 @@ const App = () => {
             {currentPage === 'about' && <AboutPage onNavigate={setCurrentPage} />}
             {currentPage === 'checklist' && <ChecklistPage user={auth.user} />}
             {currentPage === 'contact' && <ContactPage />}
+            {currentPage === 'explore' && <ExploreSpeciesPage />}
             {currentPage === 'identify-freshwater-gastropods' && <FreshwaterGastropodsIdentificationPage />}
             {currentPage === 'identify-pill-clams' && <PillClamsIdentificationPage />}
             {currentPage === 'identify-najades' && <NajadesIdentificationPage />}

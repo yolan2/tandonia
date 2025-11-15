@@ -110,7 +110,7 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 /* Bulma overrides to apply the theme */
 .navbar.is-primary { background-color: var(--color-accent) !important; background-image: none !important; }
 .navbar.is-primary .navbar-item,
-.navbar.is-primary .navbar-link { color: #fff !important; }
+.navbar.is-primary .navbar-link { color: var(--color-text) !important; }
 /* Keep items transparent (no filled background) and only color the bar */
 .navbar.is-primary .navbar-item {
 	background: transparent !important;
@@ -134,6 +134,12 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 .navbar .button.is-link:hover {
 	background: linear-gradient(180deg,#fbfbfb,#f5f5f5);
 }
+
+/* Ensure hero titles are always light-colored (not black) */
+.hero .title { color: #ffffff !important; }
+
+/* Dropdown menu items should be black for readability */
+.navbar-dropdown .navbar-item { color: #000000 !important; }
 
 /* Checklist page styles */
 .checklist-container { display: flex; gap: 1.5rem; align-items: flex-start; }
