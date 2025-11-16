@@ -11,17 +11,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-// Optional Supabase admin client (used when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided)
-let supabaseAdmin = null;
-if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log('Supabase admin client initialized');
-  } catch (err) {
-    console.warn('Could not initialize supabase admin client:', err.message);
-  }
-}
+console.log('supabaseAdmin:', !!supabaseAdmin);
 
 const app = express();
 app.use(express.json());
@@ -341,16 +331,30 @@ app.get('/api/checklists/:id', authenticateToken, async (req, res) => {
 // Get news items (public)
 app.get('/api/news', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT id, title, content, published_date, image_url, author, license
-      FROM news
-      ORDER BY published_date DESC
-      LIMIT 50
-    `);
-
-    res.json(result.rows);
+    if (supabaseAdmin) {
+      const { data, error } = await supabaseAdmin
+        .from('news')
+        .select('id, title, content, published_date, image_url, author, license')
+        .order('published_date', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      res.json(data || []);
+    } else {
+      // Fallback to pool if no supabaseAdmin
+      const result = await pool.query(`
+        SELECT id, title, content, published_date, image_url, author, license
+        FROM news
+        ORDER BY published_date DESC
+        LIMIT 50
+      `);
+      res.json(result.rows);
+    }
   } catch (error) {
     console.error('Get news error:', error && error.stack ? error.stack : error);
+    // If table doesn't exist, return empty array instead of 500
+    if (error.code === '42P01' || error.code === 'PGRST116' || error.message?.includes('does not exist')) {
+      return res.json([]);
+    }
     // Expose detailed error only when explicitly enabled via environment variable
     if (process.env.DEBUG_API_ERRORS === 'true') {
       return res.status(500).json({ error: 'Server error', detail: error.message, stack: error.stack });
@@ -365,38 +369,101 @@ app.get('/api/news', async (req, res) => {
 // if available; otherwise falls back to aggregating `species_observations`.
 app.get('/api/species', async (req, res) => {
   try {
-    // Try to read from a master `species` table and join aggregated counts.
-    const result = await pool.query(`
-      SELECT s.id, s.scientific_name, s.dutch_name, COALESCE(SUM(so.count),0) AS observation_count
-      FROM species s
-      LEFT JOIN species_observations so
-        ON so.species_name = s.scientific_name OR so.species_name = s.dutch_name
-      GROUP BY s.id, s.scientific_name, s.dutch_name
-      ORDER BY observation_count DESC
-    `);
-
-    return res.json(result.rows);
-  } catch (err) {
-    // If the `species` table doesn't exist or the query fails, fall back to aggregating
-    // species_observations. This supports installations where only observations are stored.
-    console.warn('species table query failed, falling back to aggregated observations:', err.message);
-    try {
-      const agg = await pool.query(`
-        SELECT species_name AS scientific_name, SUM(count) AS observation_count
-        FROM species_observations
-        GROUP BY species_name
+    if (supabaseAdmin) {
+      // Try to get species with counts using Supabase
+      const { data: speciesData, error: speciesError } = await supabaseAdmin
+        .from('species')
+        .select('id, scientific_name, dutch_name');
+      if (!speciesError && speciesData) {
+        // Get observation counts
+        const { data: obsData, error: obsError } = await supabaseAdmin
+          .from('species_observations')
+          .select('species_name, count');
+        if (!obsError && obsData) {
+          // Aggregate counts
+          const countMap = {};
+          obsData.forEach(obs => {
+            const name = obs.species_name;
+            countMap[name] = (countMap[name] || 0) + obs.count;
+          });
+          // Map to result
+          const result = speciesData.map(s => ({
+            id: s.id,
+            scientific_name: s.scientific_name,
+            dutch_name: s.dutch_name,
+            observation_count: countMap[s.scientific_name] || countMap[s.dutch_name] || 0
+          })).sort((a, b) => b.observation_count - a.observation_count);
+          return res.json(result);
+        }
+      }
+      // Fallback to aggregating species_observations
+      const { data: aggData, error: aggError } = await supabaseAdmin
+        .from('species_observations')
+        .select('species_name, count');
+      if (aggError) throw aggError;
+      // Aggregate
+      const countMap = {};
+      aggData.forEach(obs => {
+        const name = obs.species_name;
+        countMap[name] = (countMap[name] || 0) + obs.count;
+      });
+      const rows = Object.entries(countMap).map(([name, count]) => ({
+        id: null,
+        scientific_name: name,
+        dutch_name: null,
+        observation_count: count
+      })).sort((a, b) => b.observation_count - a.observation_count);
+      return res.json(rows);
+    } else {
+      // Fallback to pool
+      // Try to read from a master `species` table and join aggregated counts.
+      const result = await pool.query(`
+        SELECT s.id, s.scientific_name, s.dutch_name, COALESCE(SUM(so.count),0) AS observation_count
+        FROM species s
+        LEFT JOIN species_observations so
+          ON so.species_name = s.scientific_name OR so.species_name = s.dutch_name
+        GROUP BY s.id, s.scientific_name, s.dutch_name
         ORDER BY observation_count DESC
       `);
-
-      // Map to a consistent shape expected by the frontend
-      const rows = agg.rows.map(r => ({
-        id: null,
-        scientific_name: r.scientific_name,
-        dutch_name: null,
-        observation_count: parseInt(r.observation_count, 10)
-      }));
-
-      return res.json(rows);
+      return res.json(result.rows);
+    }
+  } catch (err) {
+    console.warn('species table query failed, falling back to aggregated observations:', err.message);
+    try {
+      if (supabaseAdmin) {
+        const { data: aggData, error: aggError } = await supabaseAdmin
+          .from('species_observations')
+          .select('species_name, count');
+        if (aggError) throw aggError;
+        // Aggregate
+        const countMap = {};
+        aggData.forEach(obs => {
+          const name = obs.species_name;
+          countMap[name] = (countMap[name] || 0) + obs.count;
+        });
+        const rows = Object.entries(countMap).map(([name, count]) => ({
+          id: null,
+          scientific_name: name,
+          dutch_name: null,
+          observation_count: count
+        })).sort((a, b) => b.observation_count - a.observation_count);
+        return res.json(rows);
+      } else {
+        const agg = await pool.query(`
+          SELECT species_name AS scientific_name, SUM(count) AS observation_count
+          FROM species_observations
+          GROUP BY species_name
+          ORDER BY observation_count DESC
+        `);
+        // Map to a consistent shape expected by the frontend
+        const rows = agg.rows.map(r => ({
+          id: null,
+          scientific_name: r.scientific_name,
+          dutch_name: null,
+          observation_count: parseInt(r.observation_count, 10)
+        }));
+        return res.json(rows);
+      }
     } catch (err2) {
       console.error('Failed to aggregate species observations:', err2 && err2.stack ? err2.stack : err2);
       if (process.env.DEBUG_API_ERRORS === 'true') {
@@ -417,7 +484,7 @@ module.exports = app;
 
 // For local development
 if (require.main === module) {
-  const PORT = process.env.PORT || 3001;
+  const PORT = process.env.PORT || 3002;
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
