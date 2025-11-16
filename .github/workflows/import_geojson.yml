@@ -1,4 +1,3 @@
-name: Import GeoJSON to Supabase
 
 on:
   workflow_dispatch:
