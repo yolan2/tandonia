@@ -360,14 +360,11 @@ const NewsPage = () => {
 
                 {item.image_url && (
               <figure>
+                <div className="image-meta">
+                  <span className="author">{item.author ? t('news.by', { author: item.author }) : '—'}</span>
+                  <span className="license">{item.license ? t('news.license', { license: item.license }) : '—'}</span>
+                </div>
                 <img src={item.image_url} alt={item.title} className="timeline-image" />
-                {(item.author || item.license) && (
-                  <figcaption className="is-size-7 has-text-grey mt-2">
-                    {item.author ? t('news.by', { author: item.author }) : null}
-                    {item.author && item.license ? ' · ' : ''}
-                    {item.license ? t('news.license', { license: item.license }) : null}
-                  </figcaption>
-                )}
               </figure>
             )}
 
@@ -534,6 +531,10 @@ const PillClamsIdentificationPage = () => {
                 {yesList.slice(0, 3).map((s, idx) => (
                   <div key={idx} className="column is-one-third has-text-centered">
                     <p className="has-text-weight-semibold mb-2">Yes</p>
+                    <div className="image-meta">
+                      <span className="author">{s.author || '—'}</span>
+                      <span className="license">{s.license || '—'}</span>
+                    </div>
                     <img src={s.image} alt={s.species} className="crop-300" />
                   </div>
                 ))}
@@ -548,6 +549,10 @@ const PillClamsIdentificationPage = () => {
                 {noList.slice(0, 3).map((s, idx) => (
                   <div key={idx} className="column is-one-third has-text-centered">
                     <p className="has-text-weight-semibold mb-2">No</p>
+                    <div className="image-meta">
+                      <span className="author">{s.author || '—'}</span>
+                      <span className="license">{s.license || '—'}</span>
+                    </div>
                     <img src={s.image} alt={s.species} className="crop-300" />
                   </div>
                 ))}
@@ -563,11 +568,20 @@ const PillClamsIdentificationPage = () => {
               <p className="has-text-success mb-4">{t('identification.pillClams.possibleMatches')}</p>
               <div className="content">
                 <ul>
-                  {matches.map((m, idx) => (
-                    <li key={idx} className="mb-2">
-                      <strong style={{ textTransform: 'capitalize' }}>{m.species}</strong>
+                    {matches.map((m, idx) => (
+                    <li key={idx} className="mb-2" style={{ display: 'flex', alignItems: 'center' }}>
+                      <div style={{ flex: '1 1 auto' }}>
+                        <strong style={{ textTransform: 'capitalize' }}>{m.species}</strong>
+                        <div className="content is-small" style={{ marginTop: 6 }}>{m.notes || m.description || '—'}</div>
+                      </div>
                       {m.image && m.image !== "no image" && (
-                        <img src={m.image} alt={m.species} className="crop-thumb" style={{ marginLeft: '1rem', maxWidth: 200 }} />
+                        <div style={{ marginLeft: '1rem', maxWidth: 200, textAlign: 'right' }}>
+                          <div className="image-meta">
+                            <span className="author">{m.author || '—'}</span>
+                            <span className="license">{m.license || '—'}</span>
+                          </div>
+                          <img src={m.image} alt={m.species} className="crop-thumb" style={{ maxWidth: 200 }} />
+                        </div>
                       )}
                     </li>
                   ))}
@@ -627,12 +641,16 @@ const ExploreSpeciesPage = () => {
               <div className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(s)}>
                 <div className="card-image">
                   <figure className="image is-4by3">
+                    <div className="image-meta">
+                      <span className="author">{s.author || '—'}</span>
+                      <span className="license">{s.license || '—'}</span>
+                    </div>
                     <img src={s.image_url || s.image || 'https://via.placeholder.com/300x200?text=No+image'} alt={s.species} className="crop" />
                   </figure>
                 </div>
                 <div className="card-content">
                   <p className="title is-6">{s.species}</p>
-                  <p className="subtitle is-7">{s.author || ''}</p>
+                  <div className="content is-small" style={{ marginTop: 6 }}>{s.notes || s.description || ''}</div>
                 </div>
               </div>
             </div>
@@ -649,11 +667,11 @@ const ExploreSpeciesPage = () => {
               <button className="delete" aria-label="close" onClick={() => setSelected(null)}></button>
             </header>
             <section className="modal-card-body">
-              <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6, objectFit: 'cover', height: 300, width: '100%' }} />
-              <div style={{ marginTop: 12 }}>
-                <strong>Author:</strong> {selected.author || '—'}<br />
-                <strong>License:</strong> {selected.license || '—'}
+              <div className="image-meta">
+                <span className="author">{selected.author || '—'}</span>
+                <span className="license">{selected.license || '—'}</span>
               </div>
+              <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6, objectFit: 'cover', height: 300, width: '100%' }} />
               <div style={{ marginTop: 12 }}>
                 <strong>Notes:</strong>
                 <div>{selected.notes || selected.description || '—'}</div>

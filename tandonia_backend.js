@@ -38,7 +38,12 @@ const allowed = [
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow server-to-server or curl (no Origin)
-    return allowed.indexOf(origin) !== -1 ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+    // If origin is in the allow-list, allow it. If not, do NOT throw an error here
+    // because some deployments propagate thrown errors as HTTP 500 responses
+    // which can break clients and hide the real runtime error. Returning
+    // `callback(null, false)` simply denies CORS for that origin without
+    // generating a server exception.
+    return allowed.indexOf(origin) !== -1 ? callback(null, true) : callback(null, false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -345,7 +350,11 @@ app.get('/api/news', async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    console.error('Get news error:', error);
+    console.error('Get news error:', error && error.stack ? error.stack : error);
+    // Expose detailed error only when explicitly enabled via environment variable
+    if (process.env.DEBUG_API_ERRORS === 'true') {
+      return res.status(500).json({ error: 'Server error', detail: error.message, stack: error.stack });
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -389,7 +398,10 @@ app.get('/api/species', async (req, res) => {
 
       return res.json(rows);
     } catch (err2) {
-      console.error('Failed to aggregate species observations:', err2);
+      console.error('Failed to aggregate species observations:', err2 && err2.stack ? err2.stack : err2);
+      if (process.env.DEBUG_API_ERRORS === 'true') {
+        return res.status(500).json({ error: 'Server error', detail: err2.message, stack: err2.stack });
+      }
       return res.status(500).json({ error: 'Server error' });
     }
   }
@@ -410,3 +422,26 @@ if (require.main === module) {
     console.log(`Server running on port ${PORT}`);
   });
 }
+
+// --- Error handler: ensure CORS headers are present even on internal errors
+// This prevents the browser from receiving a 500 with no CORS headers which
+// would make debugging harder. It also ensures we return JSON errors.
+app.use((err, req, res, next) => {
+  try {
+    // Mirror the Origin header if present and allowed, otherwise fall back to first allowed origin
+    const origin = req.headers.origin;
+    if (origin && allowed.indexOf(origin) !== -1) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', allowed[0] || '*');
+    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept');
+  } catch (e) {
+    // ignore header-setting errors
+  }
+
+  console.error('Unhandled error:', err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status((err && err.status) || 500).json({ error: (err && err.message) || 'Server error' });
+});

@@ -97,6 +97,15 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 	border-radius: 6px;
 }
 
+/* Image metadata caption placed above images */
+.image-meta {
+	font-size: 0.8rem;
+	color: var(--color-muted);
+	margin-bottom: 0.5rem;
+}
+.image-meta .author { font-weight: 600; color: var(--color-text); display: inline-block; margin-right: 0.5rem }
+.image-meta .license { font-style: italic; color: #6b7280 }
+
 @media (max-width: 768px) {
 	.timeline { padding-left: 2rem }
 	.timeline:before { left: 18px }
