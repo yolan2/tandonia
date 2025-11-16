@@ -27,16 +27,25 @@ const app = express();
 app.use(express.json());
 
 // Enable CORS for the frontend site(s). Adjust origins as needed for other environments.
+// Configure CORS with an allow-list. Add dev origins as needed.
+const allowed = [
+  'https://www.tandonia.be',
+  'https://tandonia.be',
+  'http://localhost:3000'
+];
+
+// dynamic origin check
 app.use(cors({
-  origin: [
-    'https://www.tandonia.be',
-    'https://tandonia.be'
-  ],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow server-to-server or curl (no Origin)
+    return allowed.indexOf(origin) !== -1 ? callback(null, true) : callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true
 }));
 
-// Allow preflight requests for all routes
+// ensure preflight allowed
 app.options('*', cors());
 
 // Database connection

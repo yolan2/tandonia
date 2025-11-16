@@ -358,9 +358,9 @@ const NewsPage = () => {
           <article key={item.id ?? idx} className="timeline-item">
             <div className="timeline-date">{item.date || item.published_at || ''}</div>
 
-            {item.image_url && (
+                {item.image_url && (
               <figure>
-                <img src={item.image_url} alt={item.title} style={{ maxWidth: '100%', maxHeight: '320px', width: 'auto', height: 'auto', objectFit: 'cover', borderRadius: '6px', marginBottom: '0.75rem' }} />
+                <img src={item.image_url} alt={item.title} className="timeline-image" />
                 {(item.author || item.license) && (
                   <figcaption className="is-size-7 has-text-grey mt-2">
                     {item.author ? t('news.by', { author: item.author }) : null}
@@ -534,7 +534,7 @@ const PillClamsIdentificationPage = () => {
                 {yesList.slice(0, 3).map((s, idx) => (
                   <div key={idx} className="column is-one-third has-text-centered">
                     <p className="has-text-weight-semibold mb-2">Yes</p>
-                    <img src={s.image} alt={s.species} style={{ maxHeight: '300px', width: 'auto', borderRadius: '6px' }} />
+                    <img src={s.image} alt={s.species} className="crop-300" />
                   </div>
                 ))}
               </div>
@@ -548,7 +548,7 @@ const PillClamsIdentificationPage = () => {
                 {noList.slice(0, 3).map((s, idx) => (
                   <div key={idx} className="column is-one-third has-text-centered">
                     <p className="has-text-weight-semibold mb-2">No</p>
-                    <img src={s.image} alt={s.species} style={{ maxHeight: '300px', width: 'auto', borderRadius: '6px' }} />
+                    <img src={s.image} alt={s.species} className="crop-300" />
                   </div>
                 ))}
               </div>
@@ -567,7 +567,7 @@ const PillClamsIdentificationPage = () => {
                     <li key={idx} className="mb-2">
                       <strong style={{ textTransform: 'capitalize' }}>{m.species}</strong>
                       {m.image && m.image !== "no image" && (
-                        <img src={m.image} alt={m.species} style={{ maxWidth: '200px', marginLeft: '1rem', borderRadius: '6px' }} />
+                        <img src={m.image} alt={m.species} className="crop-thumb" style={{ marginLeft: '1rem', maxWidth: 200 }} />
                       )}
                     </li>
                   ))}
@@ -627,7 +627,7 @@ const ExploreSpeciesPage = () => {
               <div className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(s)}>
                 <div className="card-image">
                   <figure className="image is-4by3">
-                    <img src={s.image_url || s.image || 'https://via.placeholder.com/300x200?text=No+image'} alt={s.species} />
+                    <img src={s.image_url || s.image || 'https://via.placeholder.com/300x200?text=No+image'} alt={s.species} className="crop" />
                   </figure>
                 </div>
                 <div className="card-content">
@@ -649,7 +649,7 @@ const ExploreSpeciesPage = () => {
               <button className="delete" aria-label="close" onClick={() => setSelected(null)}></button>
             </header>
             <section className="modal-card-body">
-              <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6 }} />
+              <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6, objectFit: 'cover', height: 300, width: '100%' }} />
               <div style={{ marginTop: 12 }}>
                 <strong>Author:</strong> {selected.author || '—'}<br />
                 <strong>License:</strong> {selected.license || '—'}

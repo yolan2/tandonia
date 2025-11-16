@@ -71,4 +71,9 @@
     "step3": "Step 3: Record species counts",
     "submit": "Submit checklist"
   }
+  ,
+  "explore": {
+    "title": "Explore species",
+    "subtitle": "Click a species to view details"
+  }
 }

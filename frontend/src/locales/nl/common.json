@@ -71,4 +71,9 @@
     "step3": "Stap 3: Noteer soorten",
     "submit": "Checklist indienen"
   }
+  ,
+  "explore": {
+    "title": "Ontdek soorten",
+    "subtitle": "Klik op een soort om details te zien"
+  }
 }

@@ -71,4 +71,9 @@
     "step3": "Étape 3 : Encoder les espèces",
     "submit": "Envoyer la checklist"
   }
+  ,
+  "explore": {
+    "title": "Explorer les espèces",
+    "subtitle": "Cliquez sur une espèce pour voir les détails"
+  }
 }
