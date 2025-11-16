@@ -1,3 +1,4 @@
+name: Import GeoJSON to Supabase
 
 on:
   workflow_dispatch:
@@ -59,12 +60,8 @@ jobs:
               echo "Missing DB secrets. Provide either PG_CONN or PG_USER/PG_PASSWORD/PG_HOST (and optionally PG_PORT, PG_DB)" >&2
               exit 3
             fi
-            # URL-encode password
-            ENC_PW=$(python3 - <<'PY'
-import os,urllib.parse
-print(urllib.parse.quote(os.environ.get('PG_PASSWORD','')))
-PY
-)
+            # URL-encode password (single-line python to avoid heredoc parsing issues)
+            ENC_PW=$(python3 -c "import os,urllib.parse; print(urllib.parse.quote(os.environ.get('PG_PASSWORD','')))")
             PORT=${PG_PORT:-5432}
             DB=${PG_DB:-postgres}
             echo "PG_CONN=postgres://${PG_USER}:${ENC_PW}@${PG_HOST}:${PORT}/${DB}?sslmode=require" >> $GITHUB_ENV
