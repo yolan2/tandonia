@@ -1,0 +1,80 @@
+name: Import GeoJSON to Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      geo_path:
+        description: 'Path in repo or URL to GeoJSON file (example: supabase/hokken_website.geojson or https://...)'
+        required: true
+        default: 'hokken_website.geojson'
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Ensure geojson is available
+        id: getgeo
+        run: |
+          GEO_INPUT='${{ github.event.inputs.geo_path }}'
+          if [[ "$GEO_INPUT" =~ ^https?:// ]]; then
+            echo "Fetching remote GeoJSON from $GEO_INPUT"
+            curl -fsSL "$GEO_INPUT" -o /tmp/import_geojson.geojson
+            echo "geofile=/tmp/import_geojson.geojson" >> $GITHUB_OUTPUT
+          else
+            if [ -f "$GEO_INPUT" ]; then
+              echo "Using repo file $GEO_INPUT"
+              echo "geofile=$GEO_INPUT" >> $GITHUB_OUTPUT
+            else
+              echo "ERROR: GeoJSON file not found: $GEO_INPUT" >&2
+              exit 2
+            fi
+          fi
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then npm ci; else npm i pg; fi
+
+      - name: Build PG_CONN from secrets or use PG_CONN
+        id: makeconn
+        env:
+          PG_CONN_SECRET: ${{ secrets.PG_CONN }}
+          PG_USER: ${{ secrets.PG_USER }}
+          PG_PASSWORD: ${{ secrets.PG_PASSWORD }}
+          PG_HOST: ${{ secrets.PG_HOST }}
+          PG_PORT: ${{ secrets.PG_PORT }}
+          PG_DB: ${{ secrets.PG_DB }}
+        run: |
+          if [ -n "$PG_CONN_SECRET" ]; then
+            echo "Using PG_CONN secret"
+            echo "PG_CONN=$PG_CONN_SECRET" >> $GITHUB_ENV
+          else
+            if [ -z "$PG_USER" ] || [ -z "$PG_PASSWORD" ] || [ -z "$PG_HOST" ]; then
+              echo "Missing DB secrets. Provide either PG_CONN or PG_USER/PG_PASSWORD/PG_HOST (and optionally PG_PORT, PG_DB)" >&2
+              exit 3
+            fi
+            # URL-encode password
+            ENC_PW=$(python3 - <<'PY'
+import os,urllib.parse
+print(urllib.parse.quote(os.environ.get('PG_PASSWORD','')))
+PY
+)
+            PORT=${PG_PORT:-5432}
+            DB=${PG_DB:-postgres}
+            echo "PG_CONN=postgres://${PG_USER}:${ENC_PW}@${PG_HOST}:${PORT}/${DB}?sslmode=require" >> $GITHUB_ENV
+          fi
+
+      - name: Run importer
+        env:
+          PG_CONN: ${{ env.PG_CONN }}
+        run: |
+          GEOFILE=${{ steps.getgeo.outputs.geofile }}
+          echo "Running importer with geofile=$GEOFILE"
+          node ./scripts/import_geojson_to_supabase.js "$GEOFILE"
