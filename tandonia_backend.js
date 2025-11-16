@@ -11,7 +11,6 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-console.log('supabaseAdmin:', !!supabaseAdmin);
 
 const app = express();
 app.use(express.json());
