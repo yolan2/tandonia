@@ -7,6 +7,7 @@ try {
 }
 
 const express = require('express');
+const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -24,6 +25,19 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 const app = express();
 app.use(express.json());
+
+// Enable CORS for the frontend site(s). Adjust origins as needed for other environments.
+app.use(cors({
+  origin: [
+    'https://www.tandonia.be',
+    'https://tandonia.be'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
+// Allow preflight requests for all routes
+app.options('*', cors());
 
 // Database connection
 const pool = new Pool({
@@ -324,6 +338,51 @@ app.get('/api/news', async (req, res) => {
   } catch (error) {
     console.error('Get news error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============= SPECIES ENDPOINT =============
+
+// Returns species list with observation counts. Will try to use a master `species` table
+// if available; otherwise falls back to aggregating `species_observations`.
+app.get('/api/species', async (req, res) => {
+  try {
+    // Try to read from a master `species` table and join aggregated counts.
+    const result = await pool.query(`
+      SELECT s.id, s.scientific_name, s.dutch_name, COALESCE(SUM(so.count),0) AS observation_count
+      FROM species s
+      LEFT JOIN species_observations so
+        ON so.species_name = s.scientific_name OR so.species_name = s.dutch_name
+      GROUP BY s.id, s.scientific_name, s.dutch_name
+      ORDER BY observation_count DESC
+    `);
+
+    return res.json(result.rows);
+  } catch (err) {
+    // If the `species` table doesn't exist or the query fails, fall back to aggregating
+    // species_observations. This supports installations where only observations are stored.
+    console.warn('species table query failed, falling back to aggregated observations:', err.message);
+    try {
+      const agg = await pool.query(`
+        SELECT species_name AS scientific_name, SUM(count) AS observation_count
+        FROM species_observations
+        GROUP BY species_name
+        ORDER BY observation_count DESC
+      `);
+
+      // Map to a consistent shape expected by the frontend
+      const rows = agg.rows.map(r => ({
+        id: null,
+        scientific_name: r.scientific_name,
+        dutch_name: null,
+        observation_count: parseInt(r.observation_count, 10)
+      }));
+
+      return res.json(rows);
+    } catch (err2) {
+      console.error('Failed to aggregate species observations:', err2);
+      return res.status(500).json({ error: 'Server error' });
+    }
   }
 });
 

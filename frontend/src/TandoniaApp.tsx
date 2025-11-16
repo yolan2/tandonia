@@ -1184,52 +1184,28 @@ const ChecklistPage = ({ user }: any) => {
   useEffect(() => {
     const fetchSpecies = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch('/api/species');
-        // const data = await response.json();
-        
-        // Mock data for now - updated with Dutch names
-        const mockSpecies = [
-          { id: 1, scientific_name: 'Arion ater', dutch_name: 'Zwarte wegslak', observation_count: 245 },
-          { id: 2, scientific_name: 'Arion rufus', dutch_name: 'Rode wegslak', observation_count: 189 },
-          { id: 3, scientific_name: 'Arion distinctus', dutch_name: 'Gewone aardslak', observation_count: 167 },
-          { id: 4, scientific_name: 'Arion silvaticus', dutch_name: 'Bosslak', observation_count: 143 },
-          { id: 5, scientific_name: 'Arion intermedius', dutch_name: 'Egel-aardslak', observation_count: 128 },
-          { id: 6, scientific_name: 'Arion subfuscus', dutch_name: 'Bruine aardslak', observation_count: 112 },
-          { id: 7, scientific_name: 'Arion fuscus', dutch_name: 'Donkere wegslak', observation_count: 98 },
-          { id: 8, scientific_name: 'Arion owenii', dutch_name: 'Spaanse aardslak', observation_count: 87 },
-          { id: 9, scientific_name: 'Arion vulgaris', dutch_name: 'Spaanse wegslak', observation_count: 156 },
-          { id: 10, scientific_name: 'Deroceras reticulatum', dutch_name: 'Genetelde akkerslak', observation_count: 201 },
-          { id: 11, scientific_name: 'Deroceras laeve', dutch_name: 'Gladde akkerslak', observation_count: 134 },
-          { id: 12, scientific_name: 'Deroceras agreste', dutch_name: 'Gevlekte akkerslak', observation_count: 109 },
-          { id: 13, scientific_name: 'Limax maximus', dutch_name: 'Tijgerslak', observation_count: 178 },
-          { id: 14, scientific_name: 'Limax cinereoniger', dutch_name: 'Grote aardslak', observation_count: 92 },
-          { id: 15, scientific_name: 'Lehmannia marginata', dutch_name: 'Gerande slak', observation_count: 76 },
-          { id: 16, scientific_name: 'Tandonia budapestensis', dutch_name: 'Boedapestslak', observation_count: 145 },
-          { id: 17, scientific_name: 'Tandonia rustica', dutch_name: 'Landslak', observation_count: 67 },
-          { id: 18, scientific_name: 'Boettgerilla pallens', dutch_name: 'Wormslak', observation_count: 54 },
-          { id: 19, scientific_name: 'Vitrina pellucida', dutch_name: 'Doorschijnende glazenslak', observation_count: 121 },
-          { id: 20, scientific_name: 'Aegopinella nitidula', dutch_name: 'Blinkende glazenslak', observation_count: 103 },
-          { id: 21, scientific_name: 'Aegopinella pura', dutch_name: 'Kleine glazenslak', observation_count: 89 },
-          { id: 22, scientific_name: 'Oxychilus cellarius', dutch_name: 'Kelder glazenslak', observation_count: 95 },
-          { id: 23, scientific_name: 'Oxychilus draparnaudi', dutch_name: 'Grote glanzende glazenslak', observation_count: 71 },
-          { id: 24, scientific_name: 'Zonitoides nitidus', dutch_name: 'Zwarte glazenslak', observation_count: 84 },
-          { id: 25, scientific_name: 'Vitrea contracta', dutch_name: 'Witte kristalslak', observation_count: 62 },
-          { id: 26, scientific_name: 'Vitrea crystallina', dutch_name: 'Kristalslak', observation_count: 78 },
-          { id: 27, scientific_name: 'Nesovitrea hammonis', dutch_name: 'Gestreepte glazenslak', observation_count: 91 },
-          { id: 28, scientific_name: 'Euconulus fulvus', dutch_name: 'Tapse kristalslak', observation_count: 58 },
-          { id: 29, scientific_name: 'Discus rotundatus', dutch_name: 'Bolle kristalslak', observation_count: 106 }
-        ];
-        
-        // Sort by observation count (most common first)
-        mockSpecies.sort((a, b) => b.observation_count - a.observation_count);
-        
-        setSpeciesList(mockSpecies);
-        
-        // Initialize species counts
-        const initialCounts = mockSpecies.reduce((acc: any, sp: any) => ({ ...acc, [sp.id]: 0 }), {});
+        // Try to fetch species from API first
+        const res = await fetch(`${API_BASE}/api/species`);
+        if (!res.ok) throw new Error('no-api');
+        const data = await res.json();
+
+        // Normalize returned rows to expected shape
+        const normalized = (Array.isArray(data) ? data : []).map((r: any, idx: number) => ({
+          id: r.id ?? idx + 1,
+          scientific_name: r.scientific_name || r.scientificName || r.name || '',
+          dutch_name: r.dutch_name || r.dutchName || r.common_name || null,
+          observation_count: parseInt(r.observation_count ?? r.count ?? 0, 10)
+        }));
+
+        // Sort by observation_count desc
+        normalized.sort((a: any, b: any) => (b.observation_count || 0) - (a.observation_count || 0));
+
+        setSpeciesList(normalized);
+
+        // Initialize species counts keyed by returned id
+        const initialCounts = normalized.reduce((acc: any, sp: any) => ({ ...acc, [sp.id]: 0 }), {});
         setSpecies(initialCounts);
-        
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching species:', error);
@@ -1268,7 +1244,7 @@ const ChecklistPage = ({ user }: any) => {
     }
 
     if (!timeSpent || parseInt(timeSpent) < 1) {
-      alert('Please enter time spent in minutes');
+      alert('Please enter time spent searching in minutes');
       return;
     }
 
@@ -1398,7 +1374,7 @@ const ChecklistPage = ({ user }: any) => {
                 </div>
 
                 <div className="field mt-4">
-                  <label className="label">Time Spent (minutes)</label>
+                  <label className="label">Time Spent searching (minutes)</label>
                   <div className="control">
                     <input className="input" type="number" min="1" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} />
                   </div>
