@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import L from 'leaflet';
 
 // API base url (frontend can override with REACT_APP_API_URL, VITE_API_URL or window.__API_URL__)
 // Use safe runtime checks so bundlers don't leave `process` in the client bundle.
@@ -1075,68 +1076,53 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
-    const initMap = () => {
-      const L = (window as any).L;
-      if (!L) {
-        setTimeout(initMap, 100);
-        return;
-      }
+    const map = L.map(mapRef.current).setView([50.5, 4.5], 8);
+    mapInstanceRef.current = map;
 
-      const map = L.map(mapRef.current).setView([50.5, 4.5], 8);
-      mapInstanceRef.current = map;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+    const gridLayer = L.layerGroup().addTo(map);
+    (map as any).gridLayer = gridLayer;
+    (map as any).gridCells = [];
+    (map as any).markers = [];
 
-      // Grid layer will be populated from your uploaded GeoJSON via API
-      const gridLayer = L.layerGroup().addTo(map);
-      map.gridLayer = gridLayer;
-      map.gridCells = [];
-      map.markers = [];
-
-      // TODO: Fetch grid cells from API
-      // fetch('/api/grid-cells')
-      //   .then(res => res.json())
-      //   .then(geojson => {
-      //     L.geoJSON(geojson, {
-      //       style: { color: '#16a34a', weight: 1, fillOpacity: 0.2 },
-      //       onEachFeature: (feature, layer) => {
-      //         layer.on('click', () => {
-      //           if (!selectedGrid) {
-      //             onGridSelect(feature.id, layer.getBounds());
-      //           }
-      //         });
-      //       }
-      //     }).addTo(gridLayer);
-      //   });
-    };
-
-    initMap();
+    // TODO: Fetch grid cells from API
+    // fetch('/api/grid-cells')
+    //   .then(res => res.json())
+    //   .then(geojson => {
+    //     L.geoJSON(geojson, {
+    //       style: { color: '#16a34a', weight: 1, fillOpacity: 0.2 },
+    //       onEachFeature: (feature, layer) => {
+    //         layer.on('click', () => {
+    //           if (!selectedGrid) {
+    //             onGridSelect(feature.id, layer.getBounds());
+    //           }
+    //         });
+    //       }
+    //     }).addTo(gridLayer);
+    //   });
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
+      map.remove();
+      mapInstanceRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !(window as any).L) return;
+    if (!map) return;
 
-    const L = (window as any).L;
-
-    if (selectedGrid && map.gridLayer) {
-      map.gridLayer.clearLayers();
-      const cell = map.gridCells.find((c: any) => c.id === selectedGrid);
+    if (selectedGrid && (map as any).gridLayer) {
+      (map as any).gridLayer.clearLayers();
+      const cell = (map as any).gridCells.find((c: any) => c.id === selectedGrid);
       if (cell) {
         L.rectangle(cell.bounds, {
           color: '#16a34a',
           weight: 2,
           fillOpacity: 0.3
-        }).addTo(map.gridLayer);
+        }).addTo((map as any).gridLayer);
         map.fitBounds(cell.bounds);
       }
     }
@@ -1144,9 +1130,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !(window as any).L) return;
-
-    const L = (window as any).L;
+    if (!map) return;
 
     const handleClick = (e: any) => {
       if (selectedGrid && mode) {
@@ -1157,7 +1141,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
             html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>`
           })
         }).addTo(map);
-        map.markers.push(marker);
+        (map as any).markers.push(marker);
         onLocationSelect(mode, e.latlng);
       }
     };
@@ -1169,13 +1153,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
     };
   }, [selectedGrid, mode, onLocationSelect]);
 
-  return (
-    <div>
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-      <div ref={mapRef} className="w-full h-96 rounded-lg shadow-md"></div>
-    </div>
-  );
+  return <div ref={mapRef} className="w-full h-96 rounded-lg shadow-md"></div>;
 };
 
 const ChecklistPage = ({ user }: any) => {
