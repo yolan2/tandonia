@@ -113,6 +113,13 @@ const useAuth = () => {
   return { user, login, logout, register, loading, getAccessToken };
 };
 
+const ImageCredit = ({ author, license }: { author?: string | null; license?: string | null }) => (
+  <div className="image-credit-overlay">
+    <span className="author">{author || 'Unknown author'}</span>
+    {license ? <span className="license">{license}</span> : null}
+  </div>
+);
+
 const TandoniaApp = () => {
   const { i18n } = useTranslation();
   const [items, setItems] = useState([]);
@@ -360,11 +367,11 @@ const NewsPage = () => {
             <div className="timeline-date">{item.date || item.published_at || ''}</div>
 
                 {item.image_url && (
-              <figure>
-                <div className="image-meta">
-                  <span className="author">{item.author ? t('news.by', { author: item.author }) : '—'}</span>
-                  <span className="license">{item.license ? t('news.license', { license: item.license }) : '—'}</span>
-                </div>
+              <figure className="figure-credit-wrapper">
+                <ImageCredit
+                  author={item.author || null}
+                  license={item.license ? t('news.license', { license: item.license }) : null}
+                />
                 <img src={item.image_url} alt={item.title} className="timeline-image" />
               </figure>
             )}
@@ -532,11 +539,10 @@ const PillClamsIdentificationPage = () => {
                 {yesList.slice(0, 3).map((s, idx) => (
                   <div key={idx} className="column is-one-third has-text-centered">
                     <p className="has-text-weight-semibold mb-2">Yes</p>
-                    <div className="image-meta">
-                      <span className="author">{s.author || '—'}</span>
-                      <span className="license">{s.license || '—'}</span>
+                    <div className="figure-credit-wrapper">
+                      <ImageCredit author={s.author} license={s.license} />
+                      <img src={s.image} alt={s.species} className="crop-300" />
                     </div>
-                    <img src={s.image} alt={s.species} className="crop-300" />
                   </div>
                 ))}
               </div>
@@ -550,11 +556,10 @@ const PillClamsIdentificationPage = () => {
                 {noList.slice(0, 3).map((s, idx) => (
                   <div key={idx} className="column is-one-third has-text-centered">
                     <p className="has-text-weight-semibold mb-2">No</p>
-                    <div className="image-meta">
-                      <span className="author">{s.author || '—'}</span>
-                      <span className="license">{s.license || '—'}</span>
+                    <div className="figure-credit-wrapper">
+                      <ImageCredit author={s.author} license={s.license} />
+                      <img src={s.image} alt={s.species} className="crop-300" />
                     </div>
-                    <img src={s.image} alt={s.species} className="crop-300" />
                   </div>
                 ))}
               </div>
@@ -577,11 +582,10 @@ const PillClamsIdentificationPage = () => {
                       </div>
                       {m.image && m.image !== "no image" && (
                         <div style={{ marginLeft: '1rem', maxWidth: 200, textAlign: 'right' }}>
-                          <div className="image-meta">
-                            <span className="author">{m.author || '—'}</span>
-                            <span className="license">{m.license || '—'}</span>
+                          <div className="figure-credit-wrapper">
+                            <ImageCredit author={m.author} license={m.license} />
+                            <img src={m.image} alt={m.species} className="crop-thumb" style={{ maxWidth: 200 }} />
                           </div>
-                          <img src={m.image} alt={m.species} className="crop-thumb" style={{ maxWidth: 200 }} />
                         </div>
                       )}
                     </li>
@@ -641,13 +645,10 @@ const ExploreSpeciesPage = () => {
             <div key={s.id} className="column is-one-quarter">
               <div className="card" style={{ cursor: 'pointer' }} onClick={() => setSelected(s)}>
                 <div className="card-image">
-                  <figure className="image is-4by3">
-                    <div className="image-meta">
-                      <span className="author">{s.author || '—'}</span>
-                      <span className="license">{s.license || '—'}</span>
-                    </div>
-                    <img src={s.image_url || s.image || 'https://via.placeholder.com/300x200?text=No+image'} alt={s.species} className="crop" />
-                  </figure>
+                    <figure className="image is-4by3 figure-credit-wrapper">
+                      <ImageCredit author={s.author} license={s.license} />
+                      <img src={s.image_url || s.image || 'https://via.placeholder.com/300x200?text=No+image'} alt={s.species} className="crop" />
+                    </figure>
                 </div>
                 <div className="card-content">
                   <p className="title is-6">{s.species}</p>
@@ -668,11 +669,10 @@ const ExploreSpeciesPage = () => {
               <button className="delete" aria-label="close" onClick={() => setSelected(null)}></button>
             </header>
             <section className="modal-card-body">
-              <div className="image-meta">
-                <span className="author">{selected.author || '—'}</span>
-                <span className="license">{selected.license || '—'}</span>
+              <div className="figure-credit-wrapper" style={{ marginBottom: 12 }}>
+                <ImageCredit author={selected.author} license={selected.license} />
+                <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6, objectFit: 'cover', height: 300, width: '100%' }} />
               </div>
-              <img src={selected.image_url || selected.image} alt={selected.species} style={{ maxWidth: '100%', borderRadius: 6, objectFit: 'cover', height: 300, width: '100%' }} />
               <div style={{ marginTop: 12 }}>
                 <strong>Notes:</strong>
                 <div>{selected.notes || selected.description || '—'}</div>

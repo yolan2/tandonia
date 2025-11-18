@@ -123,6 +123,43 @@ html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial;
 .image-meta .author { font-weight: 600; color: var(--color-text); display: inline-block; margin-right: 0.5rem }
 .image-meta .license { font-style: italic; color: #6b7280 }
 
+.figure-credit-wrapper {
+	position: relative;
+}
+
+.figure-credit-wrapper img,
+.figure-credit-wrapper .crop,
+.figure-credit-wrapper .crop-300,
+.figure-credit-wrapper .crop-thumb,
+.figure-credit-wrapper .timeline-image {
+	display: block;
+}
+
+.image-credit-overlay {
+	position: absolute;
+	top: 0.65rem;
+	left: 0.65rem;
+	background: rgba(0, 0, 0, 0.68);
+	color: #ffffff;
+	padding: 0.25rem 0.5rem;
+	border-radius: 4px;
+	font-size: 0.75rem;
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	pointer-events: none;
+	z-index: 2;
+}
+
+.image-credit-overlay .author {
+	font-weight: 600;
+}
+
+.image-credit-overlay .license {
+	font-style: italic;
+	opacity: 0.85;
+}
+
 @media (max-width: 768px) {
 	.timeline { padding-left: 2rem }
 	.timeline:before { left: 18px }
