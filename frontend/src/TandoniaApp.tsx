@@ -1072,6 +1072,11 @@ const RegisterPage = ({ onSuccess }: any) => {
 const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
+  const gridSelectRef = useRef(onGridSelect);
+
+  useEffect(() => {
+    gridSelectRef.current = onGridSelect;
+  }, [onGridSelect]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -1084,7 +1089,9 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
     }).addTo(map);
 
     const gridLayer = L.layerGroup().addTo(map);
+    const highlightLayer = L.layerGroup().addTo(map);
     (map as any).gridLayer = gridLayer;
+    (map as any).highlightLayer = highlightLayer;
     (map as any).gridCells = [];
     (map as any).markers = [];
 
@@ -1114,15 +1121,91 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    if (selectedGrid && (map as any).gridLayer) {
-      (map as any).gridLayer.clearLayers();
-      const cell = (map as any).gridCells.find((c: any) => c.id === selectedGrid);
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const loadGridCells = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/grid-cells`, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error(`Failed to load grid cells (${response.status})`);
+        }
+        const geojson = await response.json();
+        if (!isMounted) return;
+
+        const gridLayer = (map as any).gridLayer;
+        if (!gridLayer) return;
+
+        gridLayer.clearLayers();
+        const collected: any[] = [];
+
+        L.geoJSON(geojson, {
+          style: () => ({ color: '#15803d', weight: 1, fillOpacity: 0.08 }),
+          onEachFeature: (feature: any, layer: any) => {
+            const cellId = feature?.id
+              ?? feature?.properties?.id
+              ?? feature?.properties?.grid_id
+              ?? feature?.properties?.name;
+            if (!cellId) return;
+            const bounds = layer.getBounds();
+            const entry = { id: cellId, bounds, layer };
+            collected.push(entry);
+            layer.on('click', () => {
+              const handler = gridSelectRef.current;
+              if (handler) handler(cellId, bounds);
+            });
+          }
+        }).addTo(gridLayer);
+
+        (map as any).gridCells = collected;
+        gridLayer.bringToFront();
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        console.error('Failed to load grid cells', err);
+      }
+    };
+
+    loadGridCells();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      if ((map as any).gridLayer) {
+        (map as any).gridLayer.clearLayers();
+      }
+      (map as any).gridCells = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const highlightLayer = (map as any).highlightLayer;
+    if (highlightLayer) {
+      highlightLayer.clearLayers();
+    }
+
+    const cells = (map as any).gridCells || [];
+    cells.forEach((cell: any) => {
+      const isSelected = cell.id === selectedGrid;
+      if (cell.layer?.setStyle) {
+        cell.layer.setStyle({
+          color: isSelected ? '#16a34a' : '#15803d',
+          weight: isSelected ? 2 : 1,
+          fillOpacity: isSelected ? 0.2 : 0.08
+        });
+      }
+    });
+
+    if (selectedGrid && highlightLayer) {
+      const cell = cells.find((c: any) => c.id === selectedGrid);
       if (cell) {
         L.rectangle(cell.bounds, {
-          color: '#16a34a',
+          color: '#22c55e',
           weight: 2,
-          fillOpacity: 0.3
-        }).addTo((map as any).gridLayer);
+          fillOpacity: 0.1
+        }).addTo(highlightLayer);
         map.fitBounds(cell.bounds);
       }
     }
@@ -1172,6 +1255,7 @@ const ChecklistPage = ({ user }: any) => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [speciesError, setSpeciesError] = useState<string | null>(null);
   const searchInputId = 'species-search-input';
   const timeSpentInputId = 'time-spent-input';
 
@@ -1180,14 +1264,20 @@ const ChecklistPage = ({ user }: any) => {
 
   // Fetch species list from API
   useEffect(() => {
+    let mounted = true;
     const fetchSpecies = async () => {
+      setSpeciesError(null);
+      setLoading(true);
       try {
-        // Try to fetch species from API first
         const res = await fetch(`${API_BASE}/api/species`);
-        if (!res.ok) throw new Error('no-api');
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          const msg = text || `Request failed with status ${res.status}`;
+          throw new Error(msg);
+        }
         const data = await res.json();
+        if (!mounted) return;
 
-        // Normalize returned rows to expected shape
         const normalized = (Array.isArray(data) ? data : []).map((r: any, idx: number) => ({
           id: r.id ?? idx + 1,
           scientific_name: r.scientific_name || r.scientificName || r.name || '',
@@ -1195,23 +1285,23 @@ const ChecklistPage = ({ user }: any) => {
           observation_count: parseInt(r.observation_count ?? r.count ?? 0, 10)
         }));
 
-        // Sort by observation_count desc
         normalized.sort((a: any, b: any) => (b.observation_count || 0) - (a.observation_count || 0));
 
         setSpeciesList(normalized);
-
-        // Initialize species counts keyed by returned id
         const initialCounts = normalized.reduce((acc: any, sp: any) => ({ ...acc, [sp.id]: 0 }), {});
         setSpecies(initialCounts);
-
-        setLoading(false);
-      } catch (error) {
+      } catch (error: any) {
+        if (!mounted) return;
         console.error('Error fetching species:', error);
-        setLoading(false);
+        setSpeciesList([]);
+        setSpeciesError(error?.message || 'Failed to load species');
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
     fetchSpecies();
+    return () => { mounted = false; };
   }, []);
 
   // Filter species based on search term
@@ -1344,6 +1434,8 @@ const ChecklistPage = ({ user }: any) => {
             <h3 className="is-size-5 has-text-weight-semibold mb-3">{t('checklist.step3')}</h3>
             {loading ? (
               <div className="has-text-centered py-6">Loading species...</div>
+            ) : speciesError ? (
+              <div className="notification is-danger" role="alert">{speciesError}</div>
             ) : (
               <>
                 <div className="field">
