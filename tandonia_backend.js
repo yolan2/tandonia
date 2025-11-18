@@ -160,19 +160,36 @@ app.options('*', cors());
 
 // Database connection
 let pool = null;
-if (process.env.DATABASE_URL) {
+const initializePostgresPool = () => {
+  if (!process.env.DATABASE_URL) {
+    console.warn('DATABASE_URL not set; Postgres-dependent endpoints will rely on Supabase only.');
+    return null;
+  }
+
   try {
-    pool = new Pool({
+    const candidate = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     });
+
+    candidate.on('error', (err) => {
+      console.warn('Postgres pool emitted error:', err.message);
+    });
+
+    candidate.query('SELECT 1').catch((err) => {
+      console.warn('Postgres connectivity check failed; disabling pool:', err.message);
+      candidate.end().catch(() => {});
+      pool = null;
+    });
+
+    return candidate;
   } catch (err) {
     console.warn('Postgres pool initialization failed:', err.message);
-    pool = null;
+    return null;
   }
-} else {
-  console.warn('DATABASE_URL not set; Postgres-dependent endpoints will rely on Supabase only.');
-}
+};
+
+pool = initializePostgresPool();
 
 // JWT secret - set this in your environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -215,6 +232,9 @@ const authenticateToken = async (req, res, next) => {
 
 // Register new user
 app.post('/api/auth/register', async (req, res) => {
+  if (!pool) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
   try {
     const { email, password, name } = req.body;
 
@@ -253,6 +273,9 @@ app.post('/api/auth/register', async (req, res) => {
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
+  if (!pool) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
   try {
     const { email, password } = req.body;
 
@@ -359,8 +382,18 @@ app.get('/api/grid-cells', async (req, res) => {
 
 // Submit checklist
 app.post('/api/checklists', authenticateToken, async (req, res) => {
-  const client = await pool.connect();
-  
+  if (!pool) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+  } catch (err) {
+    console.error('Failed to acquire Postgres client:', err.message);
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+
   try {
     await client.query('BEGIN');
 
@@ -371,7 +404,6 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
     }
     const userId = req.user.id;
 
-    // Insert checklist
     const checklistResult = await client.query(`
       INSERT INTO checklists (user_id, grid_cell_id, time_spent_minutes, submitted_at)
       VALUES ($1, $2, $3, NOW())
@@ -380,7 +412,6 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
 
     const checklistId = checklistResult.rows[0].id;
 
-    // Insert locations
     const locationTypes = ['forest', 'swamp', 'anthropogenous'];
     for (const locType of locationTypes) {
       if (normalizedLocations[locType]) {
@@ -392,7 +423,6 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
       }
     }
 
-    // Insert species observations
     for (const [speciesName, count] of Object.entries(species)) {
       if (count > 0) {
         await client.query(`
@@ -409,18 +439,24 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
       checklistId,
       message: 'Checklist submitted successfully'
     });
-
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Checklist submission error:', error);
-    res.status(500).json({ error: 'Server error' });
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('Checklist rollback failed:', rollbackErr.message);
+    }
+    console.error('Checklist submission error:', error.message || error);
+    res.status(500).json({ error: 'Error submitting checklist', detail: error.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
 // Get user's checklists
 app.get('/api/checklists', authenticateToken, async (req, res) => {
+  if (!pool) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
   try {
     const result = await pool.query(`
       SELECT 
@@ -447,6 +483,9 @@ app.get('/api/checklists', authenticateToken, async (req, res) => {
 
 // Get checklist details
 app.get('/api/checklists/:id', authenticateToken, async (req, res) => {
+  if (!pool) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
   try {
     const checklistId = req.params.id;
 
