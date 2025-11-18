@@ -14,6 +14,23 @@
 
 /* minimal reset so the app looks OK */
 html,body,#root { height: 100%; margin: 0; font-family: Inter, system-ui, Arial; background: var(--color-bg); color: var(--color-text) }
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0,0,0,0);
+	white-space: nowrap;
+	border: 0;
+}
+.leaflet-map {
+	width: 100%;
+	height: 420px;
+	border-radius: 8px;
+	box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
 .max-w-7xl { max-width: 80rem; margin-left: auto; margin-right: auto }
 
 /* Timeline styles for News page */

@@ -1153,7 +1153,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
     };
   }, [selectedGrid, mode, onLocationSelect]);
 
-  return <div ref={mapRef} className="w-full h-96 rounded-lg shadow-md"></div>;
+  return <div ref={mapRef} className="leaflet-map"></div>;
 };
 
 const ChecklistPage = ({ user }: any) => {
@@ -1172,6 +1172,8 @@ const ChecklistPage = ({ user }: any) => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const searchInputId = 'species-search-input';
+  const timeSpentInputId = 'time-spent-input';
 
   // Access auth helpers from context instead of calling hooks inside handlers
   const auth = React.useContext(AuthContext);
@@ -1345,8 +1347,17 @@ const ChecklistPage = ({ user }: any) => {
             ) : (
               <>
                 <div className="field">
+                  <label className="label sr-only" htmlFor={searchInputId}>{t('checklist.searchLabel') || 'Search species'}</label>
                   <div className="control">
-                    <input className="input" type="text" placeholder="Zoek op Nederlandse of Latijnse naam..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <input
+                      id={searchInputId}
+                      name="speciesSearch"
+                      className="input"
+                      type="text"
+                      placeholder="Zoek op Nederlandse of Latijnse naam..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                   </div>
                   <p className="help-note mt-2">{filteredSpecies.length} van {speciesList.length} soorten getoond {searchTerm && ` (gefilterd op "${searchTerm}")`}</p>
                 </div>
@@ -1358,11 +1369,23 @@ const ChecklistPage = ({ user }: any) => {
                     filteredSpecies.map((sp) => (
                       <div key={sp.id} className="species-item">
                         <div>
-                          <div className="name">{sp.dutch_name}</div>
+                          <div className="name" id={`species-label-${sp.id}`}>{sp.dutch_name}</div>
                           <div className="is-size-7 has-text-grey">{sp.scientific_name} · {sp.observation_count} waarnemingen</div>
                         </div>
                         <div>
-                          <input className="input" type="number" min="0" value={species[sp.id] || 0} onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))} />
+                          <label className="sr-only" htmlFor={`species-count-${sp.id}`}>
+                            {`Aantal voor ${sp.dutch_name || sp.scientific_name}`}
+                          </label>
+                          <input
+                            id={`species-count-${sp.id}`}
+                            name={`speciesCount-${sp.id}`}
+                            className="input"
+                            type="number"
+                            min="0"
+                            aria-labelledby={`species-label-${sp.id}`}
+                            value={species[sp.id] || 0}
+                            onChange={(e) => setSpecies((prev: any) => ({ ...prev, [sp.id]: parseInt(e.target.value) || 0 }))}
+                          />
                         </div>
                       </div>
                     ))
@@ -1370,9 +1393,17 @@ const ChecklistPage = ({ user }: any) => {
                 </div>
 
                 <div className="field mt-4">
-                  <label className="label">Time Spent searching (minutes)</label>
+                  <label className="label" htmlFor={timeSpentInputId}>Time Spent searching (minutes)</label>
                   <div className="control">
-                    <input className="input" type="number" min="1" value={timeSpent} onChange={(e) => setTimeSpent(e.target.value)} />
+                    <input
+                      id={timeSpentInputId}
+                      name="timeSpent"
+                      className="input"
+                      type="number"
+                      min="1"
+                      value={timeSpent}
+                      onChange={(e) => setTimeSpent(e.target.value)}
+                    />
                   </div>
                 </div>
 
