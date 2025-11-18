@@ -11,6 +11,45 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
+
+// Configure Supabase admin client when service credentials are available.
+// Keeps reference defined even when env vars are missing to avoid ReferenceErrors.
+let supabaseAdmin = null;
+try {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (supabaseUrl && supabaseServiceRoleKey) {
+    supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+  }
+} catch (err) {
+  console.warn('Supabase admin client initialization failed:', err.message);
+  supabaseAdmin = null;
+}
+
+// Lazy-load fallback JSON so the API can still respond when the database/Supabase
+// credentials are missing in the deployment environment.
+const fallbackCache = {};
+const loadFallback = (file) => {
+  if (fallbackCache[file]) return fallbackCache[file];
+  try {
+    const fullPath = path.join(__dirname, 'data', file);
+    const raw = fs.readFileSync(fullPath, 'utf8');
+    fallbackCache[file] = JSON.parse(raw);
+    return fallbackCache[file];
+  } catch (err) {
+    console.warn(`Fallback data unavailable for ${file}:`, err.message);
+    fallbackCache[file] = [];
+    return fallbackCache[file];
+  }
+};
 
 const app = express();
 app.use(express.json());
@@ -354,6 +393,11 @@ app.get('/api/news', async (req, res) => {
     if (error.code === '42P01' || error.code === 'PGRST116' || error.message?.includes('does not exist')) {
       return res.json([]);
     }
+    const fallbackNews = loadFallback('news.fallback.json');
+    if (fallbackNews.length) {
+      console.warn('Serving fallback news dataset due to upstream failure.');
+      return res.json(fallbackNews);
+    }
     // Expose detailed error only when explicitly enabled via environment variable
     if (process.env.DEBUG_API_ERRORS === 'true') {
       return res.status(500).json({ error: 'Server error', detail: error.message, stack: error.stack });
@@ -465,6 +509,11 @@ app.get('/api/species', async (req, res) => {
       }
     } catch (err2) {
       console.error('Failed to aggregate species observations:', err2 && err2.stack ? err2.stack : err2);
+      const fallbackSpecies = loadFallback('species.fallback.json');
+      if (fallbackSpecies.length) {
+        console.warn('Serving fallback species dataset due to upstream failure.');
+        return res.json(fallbackSpecies);
+      }
       if (process.env.DEBUG_API_ERRORS === 'true') {
         return res.status(500).json({ error: 'Server error', detail: err2.message, stack: err2.stack });
       }

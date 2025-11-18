@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "title": "Tandonia project launch",
+    "content": "Welcome to the national slug and snail monitoring platform. Citizen scientists can now submit standardized checklists per grid cell.",
+    "published_date": "2024-09-15",
+    "image_url": "https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=800&q=80",
+    "author": "Project team",
+    "license": "Unsplash" 
+  },
+  {
+    "id": 2,
+    "title": "Grid coverage milestone",
+    "content": "Over 120 grid cells now contain at least one checklist. Help us fill the remaining gaps this season!",
+    "published_date": "2024-10-20",
+    "image_url": "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&q=80",
+    "author": "Data & QA",
+    "license": "Unsplash"
+  },
+  {
+    "id": 3,
+    "title": "Checklist tips for autumn",
+    "content": "Moist habitats reveal the highest species richness during October–November. Remember to log time spent searching in each habitat.",
+    "published_date": "2024-11-05",
+    "image_url": "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?w=1600&q=80",
+    "author": "Field ops",
+    "license": "Unsplash"
+  }
+]
