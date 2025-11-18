@@ -12,8 +12,6 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const path = require('path');
 
 // Configure Supabase admin client when service credentials are available.
 // Keeps reference defined even when env vars are missing to avoid ReferenceErrors.
@@ -34,20 +32,72 @@ try {
   supabaseAdmin = null;
 }
 
-// Lazy-load fallback JSON so the API can still respond when the database/Supabase
-// credentials are missing in the deployment environment.
-const fallbackCache = {};
-const loadFallback = (file) => {
-  if (fallbackCache[file]) return fallbackCache[file];
+const SUPABASE_SPECIES_TABLES = (process.env.SUPABASE_SPECIES_TABLES || 'species,pill_clams')
+  .split(',')
+  .map((table) => table.trim())
+  .filter(Boolean);
+
+const normalizeNewsRow = (row, idx = 0) => ({
+  id: row.id ?? row.news_id ?? idx + 1,
+  title: row.title || row.Title || row.headline || 'Untitled',
+  content: row.content || row.Content || row.body || row.excerpt || '',
+  published_date: row.published_date || row.published_at || row.date || row.Date || null,
+  image_url: row.image_url || row.image || row.ImageUrl || row.Image_URL || null,
+  author: row.author || row.Author || row.byline || null,
+  license: row.license || row.License || null
+});
+
+const normalizeSpeciesRow = (row, idx = 0) => {
+  const id = row.id ?? row.species_id ?? row.slug_id ?? idx + 1;
+  const scientificName = row.scientific_name || row.scientificName || row.species || row.name || row.title || '';
+  const dutchName = row.dutch_name || row.dutchName || row.common_name || row.dutch || null;
+  const observationCount = parseInt(
+    row.observation_count ?? row.count ?? row.observationCount ?? row.observations ?? 0,
+    10
+  ) || 0;
+  return {
+    id,
+    scientific_name: scientificName,
+    dutch_name: dutchName,
+    observation_count: observationCount
+  };
+};
+
+const fetchSupabaseSpeciesTables = async () => {
+  if (!supabaseAdmin) return null;
+  for (const table of SUPABASE_SPECIES_TABLES) {
+    try {
+      const { data, error } = await supabaseAdmin.from(table).select('*');
+      if (error) {
+        if (error.code !== '42P01') {
+          console.warn(`Supabase table ${table} query failed:`, error.message);
+        }
+        continue;
+      }
+      if (data && data.length) {
+        const normalized = data.map((row, idx) => normalizeSpeciesRow(row, idx));
+        normalized.sort((a, b) => (b.observation_count || 0) - (a.observation_count || 0));
+        return normalized;
+      }
+    } catch (err) {
+      console.warn(`Supabase table ${table} exception:`, err.message);
+    }
+  }
+  return null;
+};
+
+const fetchPostgresSpeciesJoin = async () => {
+  if (!pool) return null;
   try {
-    const fullPath = path.join(__dirname, 'data', file);
-    const raw = fs.readFileSync(fullPath, 'utf8');
-    fallbackCache[file] = JSON.parse(raw);
-    return fallbackCache[file];
+    const result = await pool.query(`
+      SELECT id, scientific_name, dutch_name, COALESCE(observation_count, 0) AS observation_count
+      FROM species
+      ORDER BY observation_count DESC
+    `);
+    return result.rows;
   } catch (err) {
-    console.warn(`Fallback data unavailable for ${file}:`, err.message);
-    fallbackCache[file] = [];
-    return fallbackCache[file];
+    console.warn('Postgres species table query failed:', err.message);
+    return null;
   }
 };
 
@@ -372,153 +422,64 @@ app.get('/api/news', async (req, res) => {
     if (supabaseAdmin) {
       const { data, error } = await supabaseAdmin
         .from('news')
-        .select('id, title, content, published_date, image_url, author, license')
+        .select('*')
         .order('published_date', { ascending: false })
         .limit(50);
-      if (error) throw error;
-      res.json(data || []);
-    } else {
-      // Fallback to pool if no supabaseAdmin
-      const result = await pool.query(`
-        SELECT id, title, content, published_date, image_url, author, license
-        FROM news
-        ORDER BY published_date DESC
-        LIMIT 50
-      `);
-      res.json(result.rows);
+      if (error && error.code !== '42P01') throw error;
+      if (data && data.length) {
+        return res.json(data.map(normalizeNewsRow));
+      }
     }
+
+    if (pool) {
+      try {
+        const result = await pool.query(`
+          SELECT id, title, content, published_date, image_url, author, license
+          FROM news
+          ORDER BY published_date DESC
+          LIMIT 50
+        `);
+        if (result.rows.length) {
+          return res.json(result.rows.map(normalizeNewsRow));
+        }
+      } catch (err) {
+        console.warn('Get news via Postgres failed:', err.message);
+      }
+    }
+
+    return res.status(503).json({ error: 'News data unavailable' });
   } catch (error) {
     console.error('Get news error:', error && error.stack ? error.stack : error);
-    // If table doesn't exist, return empty array instead of 500
-    if (error.code === '42P01' || error.code === 'PGRST116' || error.message?.includes('does not exist')) {
-      return res.json([]);
-    }
-    const fallbackNews = loadFallback('news.fallback.json');
-    if (fallbackNews.length) {
-      console.warn('Serving fallback news dataset due to upstream failure.');
-      return res.json(fallbackNews);
-    }
-    // Expose detailed error only when explicitly enabled via environment variable
     if (process.env.DEBUG_API_ERRORS === 'true') {
       return res.status(500).json({ error: 'Server error', detail: error.message, stack: error.stack });
     }
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error', detail: error.message });
   }
 });
 
 // ============= SPECIES ENDPOINT =============
 
-// Returns species list with observation counts. Will try to use a master `species` table
-// if available; otherwise falls back to aggregating `species_observations`.
+// Returns species list with observation counts. Prefers Supabase tables (species or pill_clams)
+// and falls back to Postgres or local JSON when upstream data is missing.
 app.get('/api/species', async (req, res) => {
   try {
-    if (supabaseAdmin) {
-      // Try to get species with counts using Supabase
-      const { data: speciesData, error: speciesError } = await supabaseAdmin
-        .from('species')
-        .select('id, scientific_name, dutch_name');
-      if (!speciesError && speciesData) {
-        // Get observation counts
-        const { data: obsData, error: obsError } = await supabaseAdmin
-          .from('species_observations')
-          .select('species_name, count');
-        if (!obsError && obsData) {
-          // Aggregate counts
-          const countMap = {};
-          obsData.forEach(obs => {
-            const name = obs.species_name;
-            countMap[name] = (countMap[name] || 0) + obs.count;
-          });
-          // Map to result
-          const result = speciesData.map(s => ({
-            id: s.id,
-            scientific_name: s.scientific_name,
-            dutch_name: s.dutch_name,
-            observation_count: countMap[s.scientific_name] || countMap[s.dutch_name] || 0
-          })).sort((a, b) => b.observation_count - a.observation_count);
-          return res.json(result);
-        }
-      }
-      // Fallback to aggregating species_observations
-      const { data: aggData, error: aggError } = await supabaseAdmin
-        .from('species_observations')
-        .select('species_name, count');
-      if (aggError) throw aggError;
-      // Aggregate
-      const countMap = {};
-      aggData.forEach(obs => {
-        const name = obs.species_name;
-        countMap[name] = (countMap[name] || 0) + obs.count;
-      });
-      const rows = Object.entries(countMap).map(([name, count]) => ({
-        id: null,
-        scientific_name: name,
-        dutch_name: null,
-        observation_count: count
-      })).sort((a, b) => b.observation_count - a.observation_count);
-      return res.json(rows);
-    } else {
-      // Fallback to pool
-      // Try to read from a master `species` table and join aggregated counts.
-      const result = await pool.query(`
-        SELECT s.id, s.scientific_name, s.dutch_name, COALESCE(SUM(so.count),0) AS observation_count
-        FROM species s
-        LEFT JOIN species_observations so
-          ON so.species_name = s.scientific_name OR so.species_name = s.dutch_name
-        GROUP BY s.id, s.scientific_name, s.dutch_name
-        ORDER BY observation_count DESC
-      `);
-      return res.json(result.rows);
+    const supabaseSpecies = await fetchSupabaseSpeciesTables();
+    if (supabaseSpecies && supabaseSpecies.length) {
+      return res.json(supabaseSpecies);
     }
+
+    const postgresSpecies = await fetchPostgresSpeciesJoin();
+    if (postgresSpecies && postgresSpecies.length) {
+      return res.json(postgresSpecies);
+    }
+
+    return res.status(503).json({ error: 'Species data unavailable' });
   } catch (err) {
-    console.warn('species table query failed, falling back to aggregated observations:', err.message);
-    try {
-      if (supabaseAdmin) {
-        const { data: aggData, error: aggError } = await supabaseAdmin
-          .from('species_observations')
-          .select('species_name, count');
-        if (aggError) throw aggError;
-        // Aggregate
-        const countMap = {};
-        aggData.forEach(obs => {
-          const name = obs.species_name;
-          countMap[name] = (countMap[name] || 0) + obs.count;
-        });
-        const rows = Object.entries(countMap).map(([name, count]) => ({
-          id: null,
-          scientific_name: name,
-          dutch_name: null,
-          observation_count: count
-        })).sort((a, b) => b.observation_count - a.observation_count);
-        return res.json(rows);
-      } else {
-        const agg = await pool.query(`
-          SELECT species_name AS scientific_name, SUM(count) AS observation_count
-          FROM species_observations
-          GROUP BY species_name
-          ORDER BY observation_count DESC
-        `);
-        // Map to a consistent shape expected by the frontend
-        const rows = agg.rows.map(r => ({
-          id: null,
-          scientific_name: r.scientific_name,
-          dutch_name: null,
-          observation_count: parseInt(r.observation_count, 10)
-        }));
-        return res.json(rows);
-      }
-    } catch (err2) {
-      console.error('Failed to aggregate species observations:', err2 && err2.stack ? err2.stack : err2);
-      const fallbackSpecies = loadFallback('species.fallback.json');
-      if (fallbackSpecies.length) {
-        console.warn('Serving fallback species dataset due to upstream failure.');
-        return res.json(fallbackSpecies);
-      }
-      if (process.env.DEBUG_API_ERRORS === 'true') {
-        return res.status(500).json({ error: 'Server error', detail: err2.message, stack: err2.stack });
-      }
-      return res.status(500).json({ error: 'Server error' });
+    console.error('Failed to load species:', err && err.stack ? err.stack : err);
+    if (process.env.DEBUG_API_ERRORS === 'true') {
+      return res.status(500).json({ error: 'Server error', detail: err.message, stack: err.stack });
     }
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
