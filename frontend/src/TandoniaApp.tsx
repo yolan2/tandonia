@@ -59,42 +59,44 @@ const useAuth = () => {
         console.warn('getSession failed', err);
       } finally {
         setLoading(false);
-      }
-    })();
+        let markersLayer = (map as any).markersLayer;
+        if (!markersLayer) {
+          markersLayer = L.layerGroup().addTo(map);
+          (map as any).markersLayer = markersLayer;
+        }
+        markersLayer.clearLayers();
+        if (!placedLocations) return;
+        Object.entries(placedLocations).forEach(([key, coords]: any) => {
+          if (!coords) return;
+          const color = HABITAT_COLORS[key] || '#2563eb';
+          L.marker(coords, {
+            icon: L.divIcon({
+              className: 'custom-marker',
+              html: `<div style="background-color:${color};width:20px;height:20px;border-radius:50%;border:2px solid white;"></div>`
+            })
+          }).addTo(markersLayer);
+        });
+      }, [placedLocations]);
 
-    // subscribe to auth changes
-    let sub: any = null;
-    try {
-      const res = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-        setUser(session?.user ?? null);
-      });
-      sub = res?.data?.subscription;
-    } catch (err) {
-      console.warn('auth subscription failed', err);
-    }
+      useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
 
-    return () => {
-      if (sub) sub.unsubscribe();
-    };
-  }, []);
+        const handleClick = (e: any) => {
+          if (!selectedGrid || !mode) return;
+          const cell = selectedCellRef.current;
+          if (cell?.layer && !cell.layer.getBounds().contains(e.latlng)) {
+            alert('Please click inside the selected grid cell.');
+            return;
+          }
+          onLocationSelect(mode, e.latlng);
+        };
 
-  const login = async (email: string, password: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase) throw new Error('Supabase not configured');
-    const res = await supabase.auth.signInWithPassword({ email, password });
-    if (res.error) throw res.error;
-    setUser(res.data?.user ?? null);
-    return res;
-  };
-
-  const logout = async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
-  };
-
-  const register = async (email: string, password: string, name?: string) => {
+        map.on('click', handleClick);
+        return () => {
+          map.off('click', handleClick);
+        };
+      }, [selectedGrid, mode, onLocationSelect]);
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase not configured');
     const res = await supabase.auth.signUp({ email, password, options: { data: { name } } });
@@ -1069,11 +1071,18 @@ const RegisterPage = ({ onSuccess }: any) => {
   );
 };
 
-const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
+const HABITAT_COLORS: Record<string, string> = {
+  swamp: '#0ea5e9',
+  urban: '#f97316',
+  forest: '#16a34a'
+};
+
+const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocations }: any) => {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
   const gridSelectRef = useRef(onGridSelect);
   const selectedGridRef = useRef(selectedGrid);
+  const selectedCellRef = useRef<any>(null);
 
   useEffect(() => {
     gridSelectRef.current = onGridSelect;
@@ -1086,32 +1095,38 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
   const applyGridHighlight = (targetId: any) => {
     const map = mapInstanceRef.current;
     if (!map) return;
+    const gridLayer = (map as any).gridLayer;
     const highlightLayer = (map as any).highlightLayer;
-    if (highlightLayer) {
-      highlightLayer.clearLayers();
-    }
+    if (!gridLayer) return;
     const cells = (map as any).gridCells || [];
+    selectedCellRef.current = null;
+    if (highlightLayer) highlightLayer.clearLayers();
+
+    if (!targetId) {
+      cells.forEach((cell: any) => {
+        if (!gridLayer.hasLayer(cell.layer)) gridLayer.addLayer(cell.layer);
+        if (cell.layer?.setStyle) {
+          cell.layer.setStyle({ color: '#15803d', weight: 1, fillOpacity: 0.08 });
+        }
+      });
+      return;
+    }
+
     cells.forEach((cell: any) => {
-      const isSelected = targetId && cell.id === targetId;
-      if (cell.layer?.setStyle) {
-        cell.layer.setStyle({
-          color: isSelected ? '#16a34a' : '#15803d',
-          weight: isSelected ? 2 : 1,
-          fillOpacity: isSelected ? 0.2 : 0.08
-        });
+      const isSelected = cell.id === targetId;
+      if (isSelected) {
+        selectedCellRef.current = cell;
+        if (!gridLayer.hasLayer(cell.layer)) gridLayer.addLayer(cell.layer);
+        if (cell.layer?.setStyle) {
+          cell.layer.setStyle({ color: '#16a34a', weight: 2, fillOpacity: 0.25 });
+        }
+      } else if (gridLayer.hasLayer(cell.layer)) {
+        gridLayer.removeLayer(cell.layer);
       }
     });
-    if (targetId && highlightLayer) {
-      const cell = cells.find((c: any) => c.id === targetId);
-      if (cell) {
-        L.rectangle(cell.bounds, {
-          color: '#22c55e',
-          weight: 2,
-          fillOpacity: 0.1
-        }).addTo(highlightLayer);
-        highlightLayer.bringToFront();
-        map.fitBounds(cell.bounds);
-      }
+
+    if (selectedCellRef.current) {
+      map.fitBounds(selectedCellRef.current.layer.getBounds(), { padding: [20, 20] });
     }
   };
 
@@ -1130,7 +1145,6 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
     (map as any).gridLayer = gridLayer;
     (map as any).highlightLayer = highlightLayer;
     (map as any).gridCells = [];
-    (map as any).markers = [];
 
     // TODO: Fetch grid cells from API
     // fetch('/api/grid-cells')
@@ -1189,7 +1203,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
             collected.push(entry);
             layer.on('click', () => {
               const handler = gridSelectRef.current;
-              if (handler) handler(cellId, bounds);
+              if (handler) handler(cellId);
             });
           }
         }).addTo(gridLayer);
@@ -1223,20 +1237,39 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    let markersLayer = (map as any).markersLayer;
+    if (!markersLayer) {
+      markersLayer = L.layerGroup().addTo(map);
+      (map as any).markersLayer = markersLayer;
+    }
+    markersLayer.clearLayers();
+    if (!placedLocations) return;
+    Object.entries(placedLocations).forEach(([key, coords]: any) => {
+      if (!coords) return;
+      const color = HABITAT_COLORS[key] || '#2563eb';
+      L.marker(coords, {
+        icon: L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="background-color:${color};width:20px;height:20px;border-radius:50%;border:2px solid white;"></div>`
+        })
+      }).addTo(markersLayer);
+    });
+  }, [placedLocations]);
+
     const handleClick = (e: any) => {
       if (selectedGrid && mode) {
         const color = mode === 'forest' ? '#22c55e' : mode === 'swamp' ? '#3b82f6' : '#ef4444';
         const marker = L.marker(e.latlng, {
           icon: L.divIcon({
             className: 'custom-marker',
-            html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>`
-          })
-        }).addTo(map);
-        (map as any).markers.push(marker);
-        onLocationSelect(mode, e.latlng);
-      }
-    };
-
+        const cell = selectedCellRef.current;
+        if (cell?.layer && !cell.layer.getBounds().contains(e.latlng)) {
+          alert('Please click inside the selected grid cell.');
+          return;
+        }
     map.on('click', handleClick);
 
     return () => {
@@ -1247,15 +1280,30 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
   return <div ref={mapRef} className="leaflet-map"></div>;
 };
 
+const HABITAT_STEPS = [
+  { key: 'swamp', label: 'Swamp', description: 'Wet habitat sample' },
+  { key: 'urban', label: 'Urban', description: 'Urban/anthropogenous area' },
+  { key: 'forest', label: 'Forest', description: 'Forest habitat sample' }
+];
+
 const ChecklistPage = ({ user }: any) => {
   const { t } = useTranslation();
   const [selectedGrid, setSelectedGrid] = useState<any>(null);
-  const [locationMode, setLocationMode] = useState<any>(null);
   const [locations, setLocations] = useState<any>({
     forest: null,
     swamp: null,
-    anthropogenous: null
+    urban: null
   });
+  const [overrideHabitat, setOverrideHabitat] = useState<string | null>(null);
+  const nextHabitatKey = React.useMemo(() => {
+    const step = HABITAT_STEPS.find((item) => !locations[item.key]);
+    return step ? step.key : null;
+  }, [locations]);
+  const activeHabitat = overrideHabitat || (selectedGrid ? nextHabitatKey : null);
+  const activeHabitatStep = React.useMemo(
+    () => HABITAT_STEPS.find((item) => item.key === activeHabitat) || null,
+    [activeHabitat]
+  );
   const [speciesList, setSpeciesList] = useState<any[]>([]);
   const [species, setSpecies] = useState<any>({});
   const [timeSpent, setTimeSpent] = useState('');
@@ -1269,6 +1317,21 @@ const ChecklistPage = ({ user }: any) => {
   const searchInputId = 'species-search-input';
   const timeSpentInputId = 'time-spent-input';
   const gridCellSelectId = 'grid-cell-select';
+  const resetLocations = React.useCallback(() => {
+    setLocations({ forest: null, swamp: null, urban: null });
+    setOverrideHabitat(null);
+  }, []);
+  const formatCoords = (coords: any) => {
+    if (!coords) return 'Not set';
+    const latValue = typeof coords.lat === 'function' ? coords.lat() : coords.lat;
+    const lngValue = typeof coords.lng === 'function' ? coords.lng() : coords.lng;
+    if (typeof latValue !== 'number' || typeof lngValue !== 'number') return 'Not set';
+    return `${latValue.toFixed(4)}, ${lngValue.toFixed(4)}`;
+  };
+  const handleEditHabitat = (key: string) => {
+    if (!selectedGrid) return;
+    setOverrideHabitat(key);
+  };
 
   // Access auth helpers from context instead of calling hooks inside handlers
   const auth = React.useContext(AuthContext);
@@ -1367,23 +1430,27 @@ const ChecklistPage = ({ user }: any) => {
   });
 
   const handleGridSelect = (gridId: any) => {
+    if (!gridId) return;
+    if (selectedGrid && gridId !== selectedGrid) {
+      resetLocations();
+    }
     setSelectedGrid(gridId);
   };
 
   const handleLocationSelect = (type: any, latlng: any) => {
+    if (!type) return;
     setLocations((prev: any) => ({ ...prev, [type]: latlng }));
-    setLocationMode(null);
+    setOverrideHabitat(null);
   };
 
   const handleSubmit = async () => {
-    // Validate at least one location
-    if (!locations.forest && !locations.swamp && !locations.anthropogenous) {
-      alert('Please add at least one location (forest, swamp, or anthropogenous)');
+    if (!selectedGrid) {
+      alert('Please select a grid cell');
       return;
     }
 
-    if (!selectedGrid) {
-      alert('Please select a grid cell');
+    if (!locations.swamp || !locations.urban || !locations.forest) {
+      alert('Please capture swamp, urban, and forest locations within the selected grid cell.');
       return;
     }
 
@@ -1395,7 +1462,12 @@ const ChecklistPage = ({ user }: any) => {
     const checklistData = {
       userId: user.id,
       gridCellId: selectedGrid,
-      locations,
+      locations: {
+        forest: locations.forest,
+        swamp: locations.swamp,
+        urban: locations.urban,
+        anthropogenous: locations.urban
+      },
       species,
       timeSpent: parseInt(timeSpent),
       timestamp: new Date().toISOString()
@@ -1419,7 +1491,7 @@ const ChecklistPage = ({ user }: any) => {
       setSubmitted(true);
       setTimeout(() => {
         setSelectedGrid(null);
-        setLocations({ forest: null, swamp: null, anthropogenous: null });
+        resetLocations();
         const initialCounts = speciesList.reduce((acc: any, sp: any) => ({ ...acc, [sp.id]: 0 }), {});
         setSpecies(initialCounts);
         setTimeSpent('');
@@ -1452,7 +1524,7 @@ const ChecklistPage = ({ user }: any) => {
   return (
     <div className="max-w-6xl mx-auto">
   <h1 className="title is-3 has-text-weight-bold mb-4">{t('checklist.title')}</h1>
-      <p className="help-note mb-4">Follow the steps: pick a grid cell, add habitat locations on the map, then record species counts.</p>
+      <p className="help-note mb-4">Follow the steps: pick a grid cell, place swamp → urban → forest locations inside it, then record species counts.</p>
 
       <div className="checklist-container">
         <div className="checklist-left">
@@ -1483,25 +1555,53 @@ const ChecklistPage = ({ user }: any) => {
               onGridSelect={handleGridSelect} 
               selectedGrid={selectedGrid}
               onLocationSelect={handleLocationSelect}
-              mode={locationMode}
+              mode={activeHabitat}
+              placedLocations={locations}
             />
 
-            {selectedGrid && (
-              <div style={{ marginTop: 10 }}>
-                <div className="mb-3">
+            {selectedGrid ? (
+              <div className="grid-guidance">
+                <div className="mb-2">
                   <strong>Selected grid:</strong> {selectedGrid}
                 </div>
-
-                <div className="habitat-buttons">
-                  <div className="buttons">
-                    <button className={`button is-outlined ${locations.forest ? 'is-success' : ''}`} onClick={() => setLocationMode('forest')} disabled={!selectedGrid || !!locations.forest}>Forest {locations.forest && '✓'}</button>
-                    <button className={`button is-outlined ${locations.swamp ? 'is-info' : ''}`} onClick={() => setLocationMode('swamp')} disabled={!selectedGrid || !!locations.swamp}>Swamp {locations.swamp && '✓'}</button>
-                    <button className={`button is-outlined ${locations.anthropogenous ? 'is-danger' : ''}`} onClick={() => setLocationMode('anthropogenous')} disabled={!selectedGrid || !!locations.anthropogenous}>Anthropogenous {locations.anthropogenous && '✓'}</button>
-                  </div>
+                <div className="habitat-steps">
+                  {HABITAT_STEPS.map((step) => {
+                    const done = Boolean(locations[step.key]);
+                    const isActive = activeHabitat === step.key;
+                    return (
+                      <div key={step.key} className={`habitat-step ${done ? 'completed' : isActive ? 'active' : ''}`}>
+                        <div className="habitat-step-header">
+                          <span>{step.label}</span>
+                          {done && (
+                            <button className="button is-text is-small" onClick={() => handleEditHabitat(step.key)}>
+                              Reposition
+                            </button>
+                          )}
+                        </div>
+                        <div className="habitat-step-body">
+                          {done ? (
+                            <span className="coords">{formatCoords(locations[step.key])}</span>
+                          ) : isActive ? (
+                            <span>Click on the map to place this location.</span>
+                          ) : (
+                            <span>Waiting…</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-
-                <p className="help-note mt-3">Click on the map to add locations for the selected habitat type.</p>
+                <p className="help-note mt-2">
+                  {activeHabitatStep
+                    ? `Currently placing the ${activeHabitatStep.label.toLowerCase()} location. Click inside the selected grid cell.`
+                    : 'All habitat locations captured. Use “Reposition” to adjust any point.'}
+                </p>
+                <div className="buttons mt-2">
+                  <button className="button is-light is-small" onClick={resetLocations}>Reset locations</button>
+                </div>
               </div>
+            ) : (
+              <p className="help-note mt-3">Select a grid cell to begin placing habitat locations.</p>
             )}
           </div>
         </div>
