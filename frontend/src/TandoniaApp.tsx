@@ -1236,10 +1236,6 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocatio
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
     let markersLayer = (map as any).markersLayer;
     if (!markersLayer) {
       markersLayer = L.layerGroup().addTo(map);
@@ -1249,8 +1245,11 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocatio
     if (!placedLocations) return;
     Object.entries(placedLocations).forEach(([key, coords]: any) => {
       if (!coords) return;
+      const lat = typeof coords.lat === 'function' ? coords.lat() : coords.lat;
+      const lng = typeof coords.lng === 'function' ? coords.lng() : coords.lng;
+      if (typeof lat !== 'number' || typeof lng !== 'number') return;
       const color = HABITAT_COLORS[key] || '#2563eb';
-      L.marker(coords, {
+      L.marker({ lat, lng }, {
         icon: L.divIcon({
           className: 'custom-marker',
           html: `<div style="background-color:${color};width:20px;height:20px;border-radius:50%;border:2px solid white;"></div>`
@@ -1259,17 +1258,20 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocatio
     });
   }, [placedLocations]);
 
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
     const handleClick = (e: any) => {
-      if (selectedGrid && mode) {
-        const color = mode === 'forest' ? '#22c55e' : mode === 'swamp' ? '#3b82f6' : '#ef4444';
-        const marker = L.marker(e.latlng, {
-          icon: L.divIcon({
-            className: 'custom-marker',
-        const cell = selectedCellRef.current;
-        if (cell?.layer && !cell.layer.getBounds().contains(e.latlng)) {
-          alert('Please click inside the selected grid cell.');
-          return;
-        }
+      if (!selectedGrid || !mode) return;
+      const cell = selectedCellRef.current;
+      if (cell?.layer && !cell.layer.getBounds().contains(e.latlng)) {
+        alert('Please click inside the selected grid cell.');
+        return;
+      }
+      onLocationSelect(mode, e.latlng);
+    };
+
     map.on('click', handleClick);
 
     return () => {
