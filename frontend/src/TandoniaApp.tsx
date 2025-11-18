@@ -38,8 +38,11 @@ function getSupabaseClient() {
 // with { user, login, logout, register, loading, getAccessToken }.
 const AuthContext = React.createContext<any>(null);
 
+const FRONTEND_URL = (typeof window !== 'undefined' && window.location?.origin)
+  || (typeof document !== 'undefined' && document.baseURI)
+  || 'https://tandonia.be';
+
 const useAuth = () => {
-  // Provide a simple hook that wires up Supabase auth and exposes helpers.
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -50,59 +53,74 @@ const useAuth = () => {
       return;
     }
 
-    // initialize current session
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        setUser(data?.session?.user ?? null);
-      } catch (err) {
-        console.warn('getSession failed', err);
-      } finally {
-        setLoading(false);
-        let markersLayer = (map as any).markersLayer;
-        if (!markersLayer) {
-          markersLayer = L.layerGroup().addTo(map);
-          (map as any).markersLayer = markersLayer;
-        }
-        markersLayer.clearLayers();
-        if (!placedLocations) return;
-        Object.entries(placedLocations).forEach(([key, coords]: any) => {
-          if (!coords) return;
-          const color = HABITAT_COLORS[key] || '#2563eb';
-          L.marker(coords, {
-            icon: L.divIcon({
-              className: 'custom-marker',
-              html: `<div style="background-color:${color};width:20px;height:20px;border-radius:50%;border:2px solid white;"></div>`
-            })
-          }).addTo(markersLayer);
-        });
-      }, [placedLocations]);
+    let isMounted = true;
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (isMounted) setUser(data?.session?.user ?? null);
+      })
+      .catch((err) => console.warn('getSession failed', err))
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
 
-      useEffect(() => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) setUser(session?.user ?? null);
+    });
 
-        const handleClick = (e: any) => {
-          if (!selectedGrid || !mode) return;
-          const cell = selectedCellRef.current;
-          if (cell?.layer && !cell.layer.getBounds().contains(e.latlng)) {
-            alert('Please click inside the selected grid cell.');
-            return;
-          }
-          onLocationSelect(mode, e.latlng);
-        };
+    return () => {
+      isMounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
 
-        map.on('click', handleClick);
-        return () => {
-          map.off('click', handleClick);
-        };
-      }, [selectedGrid, mode, onLocationSelect]);
+  const login = async (email: string, password: string) => {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error('Supabase not configured');
-    const res = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-    if (res.error) throw res.error;
-    // don't force-set user here; email confirmation flow may be required
-    return res;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  };
+
+  const logout = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    setUser(null);
+  };
+
+  const register = async (email: string, password: string, name: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase not configured');
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name },
+        emailRedirectTo: FRONTEND_URL
+      }
+    });
+    if (error) throw error;
+
+    if (data?.session?.access_token && data.user) {
+      try {
+        await fetch(`${API_BASE}/api/auth/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.session.access_token}`
+          },
+          body: JSON.stringify({
+            email: data.user.email,
+            name
+          })
+        });
+      } catch (syncError) {
+        console.error('Auth sync failed', syncError);
+      }
+    }
+
+    return data;
   };
 
   const getAccessToken = async () => {
@@ -121,273 +139,6 @@ const ImageCredit = ({ author, license }: { author?: string | null; license?: st
     {license ? <span className="license">{license}</span> : null}
   </div>
 );
-
-const TandoniaApp = () => {
-  const { i18n } = useTranslation();
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadFromApi = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/news?lang=${i18n.language}`);
-        if (!res.ok) throw new Error('no-api');
-        const data = await res.json();
-        if (!mounted) return;
-        setItems(Array.isArray(data) ? data : []);
-        setLoading(false);
-        return true;
-      } catch (err) {
-        setError(err?.message || 'Failed to load news');
-        setLoading(false);
-        return false;
-      }
-    };
-
-    const loadFromSupabase = async () => {
-      try {
-        const supabase = getSupabaseClient();
-        if (!supabase) throw new Error('no-supabase');
-        const { data, error } = await supabase.from('news').select('*').order('date', { ascending: false });
-        if (error) throw error;
-        setItems(Array.isArray(data) ? data : []);
-        setLoading(false);
-        return true;
-      } catch (err) {
-        setError(err?.message || 'Failed to load news');
-        setLoading(false);
-        return false;
-      }
-    };
-
-    (async () => {
-      const ok = await loadFromApi();
-      if (!ok) await loadFromSupabase();
-    })();
-
-    return () => { mounted = false; };
-  }, [i18n.language]);
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-    let subscription = null;
-    if (supabase) {
-      try {
-        const res = supabase.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user ?? null);
-        });
-        subscription = res?.data?.subscription;
-      } catch (err) {
-        console.error('supabase.onAuthStateChange error', err);
-      }
-    }
-    return () => {
-      if (subscription) subscription.unsubscribe();
-    };
-  }, []);
-
-  // ...rest of component code...
-
-  const logout = async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
-  };
-
-  // ...render logic...
-
-
-
-    // Listen for auth changes
-    let subscription: any = null;
-    try {
-      const res = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-        setUser(session?.user ?? null);
-      });
-      subscription = res?.data?.subscription;
-    } catch (err) {
-      console.error('supabase.onAuthStateChange error', err);
-    }
-
-    useEffect(() => {
-      let mounted = true;
-
-      const loadFromApi = async () => {
-        try {
-          // Pass language as query param for API translation, fallback to client translation
-          const res = await fetch(`${API_BASE}/api/news?lang=${i18n.language}`);
-          if (!res.ok) throw new Error('no-api');
-          const data = await res.json();
-          if (!mounted) return;
-          setItems(Array.isArray(data) ? data : []);
-          setLoading(false);
-          return true;
-        } catch (err) {
-          // ...existing code...
-        }
-      };
-
-      const loadFromSupabase = async () => {
-        // ...existing code...
-      };
-
-      (async () => {
-        const ok = await loadFromApi();
-        if (!ok) await loadFromSupabase();
-      })();
-
-      return () => { mounted = false; };
-    }, [i18n.language]);
-// Removed stray closing brackets and misplaced code blocks
-  
-  const register = async (email: string, password: string, name: string) => {
-    if (!supabase) throw new Error('Supabase not initialized');
-    
-    // Pass an explicit redirect URL so the confirmation email doesn't point to localhost.
-    // Supabase embeds redirect URL for email confirmations at the time of signUp.
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name: name },
-        // emailRedirectTo is supported by Supabase auth to override the project Site URL for this email
-        emailRedirectTo: FRONTEND_URL
-      }
-    });
-    
-    if (error) throw error;
-    // If there is no session yet (email confirmation flow), don't attempt to sync to the backend now.
-    // Trying to sync without a valid access token can cause network/CORS issues or 401s and will
-    // surface as "Failed to fetch" in the browser if the network is blocked.
-    if (!data.session?.access_token) {
-      console.log('Signup requires email confirmation; backend sync deferred until user confirms via email.');
-      return data;
-    }
-
-    // Sync user to local database when we have an access token
-    if (data.user) {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${data.session?.access_token}`
-          },
-          body: JSON.stringify({
-            email: data.user.email,
-            name: name
-          })
-        });
-
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '<no-body>');
-          console.warn('Auth sync returned non-OK status', res.status, txt);
-        }
-      } catch (err) {
-        // Network or CORS error
-        console.error('Auth sync fetch failed', err);
-        // Surface a friendly error to the caller while keeping the signup itself successful
-        throw new Error('Registration succeeded but syncing account to backend failed (network error). Please try logging in after confirming your email.');
-      }
-    }
-
-    return data;
-  };
-
-  const getAccessToken = async () => {
-    if (!supabase) return null;
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token;
-  };
-  
-  return { user, login, logout, register, loading, getAccessToken };
-};
-
-const NewsPage = () => {
-  const { t } = useTranslation();
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadFromApi = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/news`);
-        if (!res.ok) throw new Error('no-api');
-        const data = await res.json();
-        if (!mounted) return;
-        setItems(Array.isArray(data) ? data : []);
-        setLoading(false);
-        return true;
-      } catch (err) {
-        // API not available or returned error — fall back to Supabase if available
-        return false;
-      }
-    };
-
-    const loadFromSupabase = async () => {
-      try {
-        const supabase = getSupabaseClient();
-        if (!supabase) throw new Error('no-supabase');
-        const { data, error } = await supabase.from('news').select('*').order('date', { ascending: false });
-        if (error) throw error;
-        if (!mounted) return;
-        setItems(data ?? []);
-        setLoading(false);
-        return true;
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(err?.message || 'Failed to load news');
-        setLoading(false);
-        return false;
-      }
-    };
-
-    (async () => {
-      const ok = await loadFromApi();
-      if (!ok) await loadFromSupabase();
-    })();
-
-    return () => { mounted = false; };
-  }, []);
-
-  if (loading) return <div className="max-w-4xl mx-auto">{t('news.reading') || 'Loading...'}</div>;
-  if (error) return <div className="max-w-4xl mx-auto has-text-danger">{error}</div>;
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="timeline">
-        {items.map((item: any, idx: number) => (
-          <article key={item.id ?? idx} className="timeline-item">
-            <div className="timeline-date">{item.date || item.published_at || ''}</div>
-
-                {item.image_url && (
-              <figure className="figure-credit-wrapper">
-                <ImageCredit
-                  author={item.author || null}
-                  license={item.license ? t('news.license', { license: item.license }) : null}
-                />
-                <img src={item.image_url} alt={item.title} className="timeline-image" />
-              </figure>
-            )}
-
-            <h3 className="timeline-title">{item.title}</h3>
-            <p className="has-text-grey-dark" style={{ lineHeight: 1.6 }}>{item.content || item.body || item.excerpt}</p>
-
-            {/* Removed 'Lees meer' button as requested */}
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 const PillClamsIdentificationPage = () => {
   const { t } = useTranslation();
