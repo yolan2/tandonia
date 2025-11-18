@@ -63,6 +63,33 @@ const normalizeSpeciesRow = (row, idx = 0) => {
   };
 };
 
+const parseGeometry = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (_err) {
+      return null;
+    }
+  }
+  return null;
+};
+
+const normalizeGridCellRow = (row, idx = 0) => {
+  const id = row.id ?? row.grid_id ?? row.name ?? `cell-${idx}`;
+  const properties = row.properties || {};
+  const geometry = row.geometry || row.geom || row.geojson || row.geo_json || null;
+  const parsedGeometry = parseGeometry(geometry);
+  if (!parsedGeometry) return null;
+  return {
+    type: 'Feature',
+    id,
+    geometry: parsedGeometry,
+    properties
+  };
+};
+
 const fetchSupabaseSpeciesTables = async () => {
   if (!supabaseAdmin) return null;
   for (const table of SUPABASE_SPECIES_TABLES) {
@@ -132,10 +159,20 @@ app.use(cors({
 app.options('*', cors());
 
 // Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+let pool = null;
+if (process.env.DATABASE_URL) {
+  try {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+  } catch (err) {
+    console.warn('Postgres pool initialization failed:', err.message);
+    pool = null;
+  }
+} else {
+  console.warn('DATABASE_URL not set; Postgres-dependent endpoints will rely on Supabase only.');
+}
 
 // JWT secret - set this in your environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -257,27 +294,63 @@ app.post('/api/auth/login', async (req, res) => {
 // Get grid cells GeoJSON
 app.get('/api/grid-cells', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT 
-        id,
-        ST_AsGeoJSON(geom)::json as geometry,
-        properties
-      FROM grid_cells
-    `);
+    if (supabaseAdmin) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('grid_cells')
+          .select('id, geom, properties');
+        if (error && error.code !== '42P01') {
+          console.warn('Supabase grid_cells query failed:', error.message);
+        } else if (data && data.length) {
+          const features = data
+            .map((row, idx) =>
+              normalizeGridCellRow({
+                id: row.id,
+                properties: row.properties,
+                geometry: row.geom
+              }, idx)
+            )
+            .filter(Boolean);
+          if (features.length) {
+            return res.json({ type: 'FeatureCollection', features });
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase grid_cells exception:', err.message);
+      }
+    }
 
-    const geojson = {
-      type: 'FeatureCollection',
-      features: result.rows.map(row => ({
-        type: 'Feature',
-        id: row.id,
-        geometry: row.geometry,
-        properties: row.properties || {}
-      }))
-    };
+    if (pool) {
+      try {
+        const result = await pool.query(`
+          SELECT 
+            id,
+            ST_AsGeoJSON(geom)::json as geometry,
+            properties
+          FROM grid_cells
+        `);
 
-    res.json(geojson);
+        const geojson = {
+          type: 'FeatureCollection',
+          features: result.rows
+            .map((row, idx) => normalizeGridCellRow(row, idx))
+            .filter(Boolean)
+        };
+
+        if (geojson.features.length) {
+          return res.json(geojson);
+        }
+      } catch (err) {
+        console.warn('Grid cells via Postgres failed:', err.message);
+      }
+    }
+
+    return res.status(503).json({ error: 'Grid cells unavailable' });
   } catch (error) {
-    console.error('Grid cells error:', error);
+    console.error('Grid cells error:', error && error.stack ? error.stack : error);
+    if (process.env.DEBUG_API_ERRORS === 'true') {
+      return res.status(500).json({ error: 'Server error', detail: error.message, stack: error.stack });
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -291,7 +364,11 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const { gridCellId, locations, species, timeSpent } = req.body;
+    const { gridCellId, locations = {}, species, timeSpent } = req.body;
+    const normalizedLocations = { ...locations };
+    if (!normalizedLocations.anthropogenous && normalizedLocations.urban) {
+      normalizedLocations.anthropogenous = normalizedLocations.urban;
+    }
     const userId = req.user.id;
 
     // Insert checklist
@@ -306,8 +383,8 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
     // Insert locations
     const locationTypes = ['forest', 'swamp', 'anthropogenous'];
     for (const locType of locationTypes) {
-      if (locations[locType]) {
-        const { lat, lng } = locations[locType];
+      if (normalizedLocations[locType]) {
+        const { lat, lng } = normalizedLocations[locType];
         await client.query(`
           INSERT INTO checklist_locations (checklist_id, location_type, geom)
           VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 31370))
@@ -423,24 +500,30 @@ app.get('/api/news', async (req, res) => {
       const { data, error } = await supabaseAdmin
         .from('news')
         .select('*')
-        .order('published_date', { ascending: false })
         .limit(50);
-      if (error && error.code !== '42P01') throw error;
-      if (data && data.length) {
-        return res.json(data.map(normalizeNewsRow));
+      if (error && error.code !== '42P01') {
+        console.warn('Supabase news query failed:', error.message);
+      } else if (data && data.length) {
+        const normalized = data.map(normalizeNewsRow);
+        normalized.sort((a, b) => {
+          const aDate = new Date(a.published_date || 0).getTime();
+          const bDate = new Date(b.published_date || 0).getTime();
+          return bDate - aDate;
+        });
+        return res.json(normalized);
       }
     }
 
     if (pool) {
       try {
         const result = await pool.query(`
-          SELECT id, title, content, published_date, image_url, author, license
+          SELECT to_jsonb(news.*) AS row
           FROM news
-          ORDER BY published_date DESC
+          ORDER BY COALESCE(news.published_date, news.date, news."Date", news.created_at) DESC
           LIMIT 50
         `);
         if (result.rows.length) {
-          return res.json(result.rows.map(normalizeNewsRow));
+          return res.json(result.rows.map((row, idx) => normalizeNewsRow(row.row, idx)));
         }
       } catch (err) {
         console.warn('Get news via Postgres failed:', err.message);
