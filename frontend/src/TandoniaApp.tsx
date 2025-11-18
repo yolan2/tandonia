@@ -1073,10 +1073,47 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
   const gridSelectRef = useRef(onGridSelect);
+  const selectedGridRef = useRef(selectedGrid);
 
   useEffect(() => {
     gridSelectRef.current = onGridSelect;
   }, [onGridSelect]);
+
+  useEffect(() => {
+    selectedGridRef.current = selectedGrid;
+  }, [selectedGrid]);
+
+  const applyGridHighlight = (targetId: any) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const highlightLayer = (map as any).highlightLayer;
+    if (highlightLayer) {
+      highlightLayer.clearLayers();
+    }
+    const cells = (map as any).gridCells || [];
+    cells.forEach((cell: any) => {
+      const isSelected = targetId && cell.id === targetId;
+      if (cell.layer?.setStyle) {
+        cell.layer.setStyle({
+          color: isSelected ? '#16a34a' : '#15803d',
+          weight: isSelected ? 2 : 1,
+          fillOpacity: isSelected ? 0.2 : 0.08
+        });
+      }
+    });
+    if (targetId && highlightLayer) {
+      const cell = cells.find((c: any) => c.id === targetId);
+      if (cell) {
+        L.rectangle(cell.bounds, {
+          color: '#22c55e',
+          weight: 2,
+          fillOpacity: 0.1
+        }).addTo(highlightLayer);
+        highlightLayer.bringToFront();
+        map.fitBounds(cell.bounds);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -1159,6 +1196,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
 
         (map as any).gridCells = collected;
         gridLayer.bringToFront();
+        applyGridHighlight(selectedGridRef.current);
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error('Failed to load grid cells', err);
@@ -1178,37 +1216,7 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
   }, []);
 
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    const highlightLayer = (map as any).highlightLayer;
-    if (highlightLayer) {
-      highlightLayer.clearLayers();
-    }
-
-    const cells = (map as any).gridCells || [];
-    cells.forEach((cell: any) => {
-      const isSelected = cell.id === selectedGrid;
-      if (cell.layer?.setStyle) {
-        cell.layer.setStyle({
-          color: isSelected ? '#16a34a' : '#15803d',
-          weight: isSelected ? 2 : 1,
-          fillOpacity: isSelected ? 0.2 : 0.08
-        });
-      }
-    });
-
-    if (selectedGrid && highlightLayer) {
-      const cell = cells.find((c: any) => c.id === selectedGrid);
-      if (cell) {
-        L.rectangle(cell.bounds, {
-          color: '#22c55e',
-          weight: 2,
-          fillOpacity: 0.1
-        }).addTo(highlightLayer);
-        map.fitBounds(cell.bounds);
-      }
-    }
+    applyGridHighlight(selectedGrid);
   }, [selectedGrid]);
 
   useEffect(() => {
@@ -1242,7 +1250,6 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode }: any) => {
 const ChecklistPage = ({ user }: any) => {
   const { t } = useTranslation();
   const [selectedGrid, setSelectedGrid] = useState<any>(null);
-  const [gridBounds, setGridBounds] = useState<any>(null);
   const [locationMode, setLocationMode] = useState<any>(null);
   const [locations, setLocations] = useState<any>({
     forest: null,
@@ -1256,8 +1263,12 @@ const ChecklistPage = ({ user }: any) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [speciesError, setSpeciesError] = useState<string | null>(null);
+  const [gridCells, setGridCells] = useState<any[]>([]);
+  const [gridCellsLoading, setGridCellsLoading] = useState(true);
+  const [gridCellsError, setGridCellsError] = useState<string | null>(null);
   const searchInputId = 'species-search-input';
   const timeSpentInputId = 'time-spent-input';
+  const gridCellSelectId = 'grid-cell-select';
 
   // Access auth helpers from context instead of calling hooks inside handlers
   const auth = React.useContext(AuthContext);
@@ -1304,6 +1315,47 @@ const ChecklistPage = ({ user }: any) => {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    const loadGridCells = async () => {
+      setGridCellsLoading(true);
+      setGridCellsError(null);
+      try {
+        const res = await fetch(`${API_BASE}/api/grid-cells`);
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(text || `Request failed with status ${res.status}`);
+        }
+        const payload = await res.json();
+        if (!mounted) return;
+        const features = Array.isArray(payload?.features) ? payload.features : Array.isArray(payload) ? payload : [];
+        const normalized = features.map((feature: any, idx: number) => {
+          const id = feature?.id
+            ?? feature?.properties?.id
+            ?? feature?.properties?.grid_id
+            ?? feature?.properties?.name
+            ?? `cell-${idx}`;
+          const label = feature?.properties?.name
+            || feature?.properties?.grid_id
+            || feature?.properties?.code
+            || `Grid ${id}`;
+          return { id, label };
+        });
+        setGridCells(normalized);
+      } catch (err: any) {
+        if (!mounted) return;
+        console.error('Failed to load grid cells list:', err);
+        setGridCellsError(err?.message || 'Failed to load grid cells');
+        setGridCells([]);
+      } finally {
+        if (mounted) setGridCellsLoading(false);
+      }
+    };
+
+    loadGridCells();
+    return () => { mounted = false; };
+  }, []);
+
   // Filter species based on search term
   const filteredSpecies = speciesList.filter(sp => {
     if (!searchTerm) return true;
@@ -1314,9 +1366,8 @@ const ChecklistPage = ({ user }: any) => {
     );
   });
 
-  const handleGridSelect = (gridId: any, bounds: any) => {
+  const handleGridSelect = (gridId: any) => {
     setSelectedGrid(gridId);
-    setGridBounds(bounds);
   };
 
   const handleLocationSelect = (type: any, latlng: any) => {
@@ -1328,6 +1379,11 @@ const ChecklistPage = ({ user }: any) => {
     // Validate at least one location
     if (!locations.forest && !locations.swamp && !locations.anthropogenous) {
       alert('Please add at least one location (forest, swamp, or anthropogenous)');
+      return;
+    }
+
+    if (!selectedGrid) {
+      alert('Please select a grid cell');
       return;
     }
 
@@ -1402,6 +1458,27 @@ const ChecklistPage = ({ user }: any) => {
         <div className="checklist-left">
           <div className="map-card">
             <h3 className="is-size-5 has-text-weight-semibold mb-3">{selectedGrid ? t('checklist.add_locations') : t('checklist.step1')}</h3>
+            <div className="field">
+              <label className="label" htmlFor={gridCellSelectId}>Selecteer een gridcel</label>
+              {gridCellsLoading ? (
+                <p className="help-note">Gridcellen laden…</p>
+              ) : gridCellsError ? (
+                <div className="notification is-danger" role="alert">{gridCellsError}</div>
+              ) : (
+                <div className="select is-fullwidth">
+                  <select
+                    id={gridCellSelectId}
+                    value={selectedGrid || ''}
+                    onChange={(e) => handleGridSelect(e.target.value || null)}
+                  >
+                    <option value="" disabled>{t('checklist.step1') || 'Choose a grid cell'}</option>
+                    {gridCells.map((cell) => (
+                      <option key={cell.id} value={cell.id}>{cell.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <Map 
               onGridSelect={handleGridSelect} 
               selectedGrid={selectedGrid}
@@ -1417,9 +1494,9 @@ const ChecklistPage = ({ user }: any) => {
 
                 <div className="habitat-buttons">
                   <div className="buttons">
-                    <button className={`button is-outlined ${locations.forest ? 'is-success' : ''}`} onClick={() => setLocationMode('forest')} disabled={locations.forest}>Forest {locations.forest && '✓'}</button>
-                    <button className={`button is-outlined ${locations.swamp ? 'is-info' : ''}`} onClick={() => setLocationMode('swamp')} disabled={locations.swamp}>Swamp {locations.swamp && '✓'}</button>
-                    <button className={`button is-outlined ${locations.anthropogenous ? 'is-danger' : ''}`} onClick={() => setLocationMode('anthropogenous')} disabled={locations.anthropogenous}>Anthropogenous {locations.anthropogenous && '✓'}</button>
+                    <button className={`button is-outlined ${locations.forest ? 'is-success' : ''}`} onClick={() => setLocationMode('forest')} disabled={!selectedGrid || !!locations.forest}>Forest {locations.forest && '✓'}</button>
+                    <button className={`button is-outlined ${locations.swamp ? 'is-info' : ''}`} onClick={() => setLocationMode('swamp')} disabled={!selectedGrid || !!locations.swamp}>Swamp {locations.swamp && '✓'}</button>
+                    <button className={`button is-outlined ${locations.anthropogenous ? 'is-danger' : ''}`} onClick={() => setLocationMode('anthropogenous')} disabled={!selectedGrid || !!locations.anthropogenous}>Anthropogenous {locations.anthropogenous && '✓'}</button>
                   </div>
                 </div>
 
