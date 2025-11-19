@@ -446,8 +446,39 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
   try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
 
   if (!pool) {
-    console.warn('POST /api/checklists aborted: Postgres pool unavailable. DATABASE_URL missing or connection failed.');
-    return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; set DATABASE_URL and ensure the server can reach the database, or enable a Supabase fallback.' });
+    console.warn('POST /api/checklists: Postgres pool unavailable. Attempting Supabase fallback if available.');
+    // If Supabase admin client is configured, try to insert a simplified checklist fallback
+    if (supabaseAdmin) {
+      try {
+        const payload = {
+          user_id: userId,
+          grid_cell_id: gridCellId,
+          time_spent_minutes: timeSpent,
+          submitted_at: new Date().toISOString(),
+          // fallback: keep locations & species as JSON in a `metadata` or `locations` JSONB column
+          locations: normalizedLocations,
+          species: species
+        };
+
+        console.debug('Supabase fallback insert: payload keys:', Object.keys(payload));
+
+        const { data, error } = await supabaseAdmin.from('checklists').insert(payload).select();
+        if (error) {
+          console.warn('Supabase fallback insert failed:', error.message || error);
+          return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; supabase fallback failed to insert: ' + (error.message || JSON.stringify(error)) });
+        }
+        // If insert returns inserted row id use it; otherwise return a success hint
+        const insertedId = Array.isArray(data) && data.length ? data[0].id : null;
+        return res.json({ success: true, checklistId: insertedId, message: 'Checklist stored via Supabase fallback' });
+      } catch (err) {
+        console.error('Supabase fallback exception:', err.message || err);
+        return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; supabase fallback failed due to an exception' });
+      }
+    }
+
+    // No supabaseAdmin available — tell the client why the request cannot be completed
+    console.warn('POST /api/checklists aborted: neither Postgres pool nor Supabase admin client are available.');
+    return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; set DATABASE_URL and ensure the server can reach the database, or set SUPABASE_SERVICE_ROLE_KEY to enable a fallback.' });
   }
   // Small body size and keys for debugging
   try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
@@ -526,6 +557,40 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
 // Get user's checklists
 app.get('/api/checklists', authenticateToken, async (req, res) => {
   if (!pool) {
+    console.warn('GET /api/checklists: Postgres pool unavailable; attempting Supabase fallback');
+    if (supabaseAdmin) {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('checklists')
+          .select('*')
+          .eq('user_id', req.user.id)
+          .order('submitted_at', { ascending: false });
+
+        if (error) {
+          console.warn('Supabase checklists fetch failed:', error.message || error);
+          return res.status(503).json({ error: 'Database unavailable', hint: 'Supabase fallback failed' });
+        }
+
+        const rows = (Array.isArray(data) ? data : []).map((row) => {
+          const locationsObj = row.locations || row.locations_json || row.locations_jsonb || row.locations_data || null;
+          const speciesObj = row.species || row.species_json || row.species_data || row.species_counts || null;
+          const location_count = locationsObj ? (Array.isArray(locationsObj) ? locationsObj.length : Object.keys(locationsObj).length) : 0;
+          const species_count = speciesObj ? (Array.isArray(speciesObj) ? speciesObj.length : Object.keys(speciesObj).length) : 0;
+          return {
+            id: row.id,
+            grid_cell_id: row.grid_cell_id,
+            time_spent_minutes: row.time_spent_minutes,
+            submitted_at: row.submitted_at,
+            location_count,
+            species_count
+          };
+        });
+        return res.json(rows);
+      } catch (err) {
+        console.error('Supabase checklists exception:', err.message || err);
+        return res.status(503).json({ error: 'Database unavailable' });
+      }
+    }
     return res.status(503).json({ error: 'Database unavailable' });
   }
   try {
@@ -555,6 +620,30 @@ app.get('/api/checklists', authenticateToken, async (req, res) => {
 // Get checklist details
 app.get('/api/checklists/:id', authenticateToken, async (req, res) => {
   if (!pool) {
+    console.warn('GET /api/checklists/:id: Postgres pool unavailable; attempting Supabase fallback');
+    if (supabaseAdmin) {
+      try {
+        const checklistId = req.params.id;
+        const { data, error } = await supabaseAdmin
+          .from('checklists')
+          .select('*')
+          .eq('id', checklistId)
+          .eq('user_id', req.user.id)
+          .limit(1)
+          .maybeSingle();
+        if (error) {
+          console.warn('Supabase checklist fetch failed:', error.message || error);
+          return res.status(503).json({ error: 'Database unavailable', hint: 'Supabase fallback failed' });
+        }
+        if (!data) return res.status(404).json({ error: 'Checklist not found' });
+        const locations = data.locations || data.locations_json || data.locations_data || [];
+        const species = data.species || data.species_json || data.species_data || [];
+        return res.json({ ...data, locations, species });
+      } catch (err) {
+        console.error('Supabase checklist details exception:', err.message || err);
+        return res.status(503).json({ error: 'Database unavailable' });
+      }
+    }
     return res.status(503).json({ error: 'Database unavailable' });
   }
   try {

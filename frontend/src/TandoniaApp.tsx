@@ -1209,6 +1209,7 @@ const ChecklistPage = ({ user }: any) => {
   const [species, setSpecies] = useState<any>({});
   const [timeSpent, setTimeSpent] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [speciesError, setSpeciesError] = useState<string | null>(null);
@@ -1399,7 +1400,9 @@ const ChecklistPage = ({ user }: any) => {
         const text = await response.text().catch(() => '');
         throw new Error(text || `Submission failed (${response.status})`);
       }
-      
+
+      const json = await response.json().catch(() => null);
+      setSubmitMessage(json?.message || null);
       setSubmitted(true);
       setTimeout(() => {
         setSelectedGrid(null);
@@ -1428,6 +1431,7 @@ const ChecklistPage = ({ user }: any) => {
       <div className="text-center py-12">
         <div className="text-6xl mb-4">✓</div>
         <h2 className="text-3xl font-bold text-green-600 mb-2">Checklist Submitted!</h2>
+        {submitMessage ? <p className="text-gray-600 mb-2">{submitMessage}</p> : null}
         <p className="text-gray-600">Thank you for your contribution</p>
       </div>
     );
