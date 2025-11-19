@@ -53,8 +53,9 @@ BEGIN
         IF (loc ->> 'lat') IS NOT NULL AND (loc ->> 'lng') IS NOT NULL THEN
           lat := (loc ->> 'lat')::double precision;
           lng := (loc ->> 'lng')::double precision;
+          -- Transform WGS84 coords to target SRID (31370). If your frontend sends 4326 (lat/lng), use transform.
           INSERT INTO public.checklist_locations (checklist_id, location_type, geom)
-          VALUES (inserted_id, lockey, ST_SetSRID(ST_MakePoint(lng, lat), 31370));
+          VALUES (inserted_id, lockey, ST_Transform(ST_SetSRID(ST_MakePoint(lng, lat), 4326), 31370));
         END IF;
       EXCEPTION WHEN OTHERS THEN
         -- ignore location insert failures, continue

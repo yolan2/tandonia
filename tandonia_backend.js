@@ -748,6 +748,7 @@ app.get('/api/checklists/:id', authenticateToken, async (req, res) => {
   }
 
     // Get checklist info
+    try {
     const checklistResult = await pool.query(`
       SELECT * FROM checklists WHERE id = $1 AND user_id = $2
     `, [checklistId, req.user.id]);
@@ -782,7 +783,7 @@ app.get('/api/checklists/:id', authenticateToken, async (req, res) => {
       species: speciesResult.rows
     });
 
-  } catch (error) {
+    } catch (error) {
     console.error('Get checklist details error:', error);
     res.status(500).json({ error: 'Server error' });
   }
