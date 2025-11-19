@@ -325,14 +325,37 @@ app.get('/api/grid-cells', async (req, res) => {
         if (error && error.code !== '42P01') {
           console.warn('Supabase grid_cells query failed:', error.message);
         } else if (data && data.length) {
+          // If possible, also fetch checklists to annotate which grid cells
+          // have existing checklists so the map can show them differently.
+          let checklistCounts = {};
+          try {
+            const { data: checklists, error: listErr } = await supabaseAdmin
+              .from('checklists')
+              .select('grid_cell_id');
+            if (!listErr && Array.isArray(checklists)) {
+              for (const c of checklists) {
+                const k = String(c.grid_cell_id ?? c.gridCellId ?? c.grid_id ?? c.gridId);
+                checklistCounts[k] = (checklistCounts[k] || 0) + 1;
+              }
+            }
+          } catch (err2) {
+            console.warn('Supabase checklists fetch failed:', err2.message);
+          }
+
           const features = data
-            .map((row, idx) =>
-              normalizeGridCellRow({
+            .map((row, idx) => {
+              const normalized = normalizeGridCellRow({
                 id: row.id,
-                properties: row.properties,
+                properties: row.properties || {},
                 geometry: row.geom
-              }, idx)
-            )
+              }, idx);
+              if (!normalized) return null;
+              const key = String(normalized.id);
+              normalized.properties = normalized.properties || {};
+              normalized.properties.checklist_count = checklistCounts[key] || 0;
+              normalized.properties.has_checklist = (normalized.properties.checklist_count || 0) > 0;
+              return normalized;
+            })
             .filter(Boolean);
           if (features.length) {
             return res.json({ type: 'FeatureCollection', features });
@@ -346,17 +369,30 @@ app.get('/api/grid-cells', async (req, res) => {
     if (pool) {
       try {
         const result = await pool.query(`
-          SELECT 
-            id,
-            ST_AsGeoJSON(geom)::json as geometry,
-            properties
-          FROM grid_cells
+          SELECT
+            gc.id,
+            ST_AsGeoJSON(gc.geom)::json AS geometry,
+            gc.properties,
+            COALESCE(c.checklist_count, 0) AS checklist_count
+          FROM grid_cells gc
+          LEFT JOIN (
+            SELECT grid_cell_id, COUNT(*)::int AS checklist_count
+            FROM checklists
+            GROUP BY grid_cell_id
+          ) c ON c.grid_cell_id = gc.id
         `);
 
         const geojson = {
           type: 'FeatureCollection',
           features: result.rows
-            .map((row, idx) => normalizeGridCellRow(row, idx))
+            .map((row, idx) => {
+              const n = normalizeGridCellRow(row, idx);
+              if (!n) return null;
+              n.properties = n.properties || {};
+              n.properties.checklist_count = row.checklist_count || 0;
+              n.properties.has_checklist = (n.properties.checklist_count || 0) > 0;
+              return n;
+            })
             .filter(Boolean)
         };
 

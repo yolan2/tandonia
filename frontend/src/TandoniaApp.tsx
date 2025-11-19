@@ -1074,7 +1074,15 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocatio
         const collected: any[] = [];
 
         L.geoJSON(geojson, {
-          style: () => ({ color: '#15803d', weight: 1, fillOpacity: 0.08 }),
+          style: (feature: any) => {
+            const count = feature?.properties?.checklist_count ?? feature?.properties?.checklistCount ?? 0;
+            const hasChecklist = !!count || feature?.properties?.has_checklist;
+            return {
+              color: hasChecklist ? '#16a34a' : '#15803d',
+              weight: 1,
+              fillOpacity: hasChecklist ? 0.16 : 0.08
+            };
+          },
           onEachFeature: (feature: any, layer: any) => {
             const cellId = feature?.id
               ?? feature?.properties?.id
@@ -1088,6 +1096,11 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocatio
               const handler = gridSelectRef.current;
               if (handler) handler(cellId);
             });
+            // Add a tooltip showing checklist count if present
+            const count = feature?.properties?.checklist_count ?? feature?.properties?.checklistCount ?? 0;
+            if (count) {
+              layer.bindTooltip(`Has ${count} checklist(s)`, { permanent: false });
+            }
           }
         }).addTo(gridLayer);
 
