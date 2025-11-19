@@ -1108,7 +1108,19 @@ const Map = ({ onGridSelect, selectedGrid, onLocationSelect, mode, placedLocatio
         }).addTo(gridLayer);
 
         (map as any).gridCells = collected;
-        gridLayer.bringToFront();
+        // Some Leaflet LayerGroup instances do not implement bringToFront directly.
+        // Safely call bringToFront on the container if available, otherwise call it on each sub-layer.
+        try {
+          if (typeof (gridLayer as any).bringToFront === 'function') {
+            (gridLayer as any).bringToFront();
+          } else if (typeof (gridLayer as any).eachLayer === 'function') {
+            (gridLayer as any).eachLayer((layer: any) => {
+              if (layer && typeof layer.bringToFront === 'function') layer.bringToFront();
+            });
+          }
+        } catch (err) {
+          console.warn('Error while bringing grid layer to front:', err);
+        }
         applyGridHighlight(selectedGridRef.current);
       } catch (err) {
         if (controller.signal.aborted) return;
