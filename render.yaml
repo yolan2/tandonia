@@ -10,6 +10,8 @@ services:
     envVars:
       - key: FRONTEND_URL
         value: 'https://tandonia.be'
+      - key: DEBUG_API_ERRORS
+        value: 'true'
   - type: static
     name: tandonia-frontend
     env: static

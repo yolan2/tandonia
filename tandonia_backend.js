@@ -443,11 +443,18 @@ app.get('/api/grid-cells', async (req, res) => {
 // Submit checklist
 app.post('/api/checklists', authenticateToken, async (req, res) => {
   console.debug('POST /api/checklists invoked, origin:', req.headers.origin || 'no-origin', 'user:', req.user && req.user.id ? req.user.id : 'anonymous');
+  try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
+
+  if (!pool) {
+    console.warn('POST /api/checklists aborted: Postgres pool unavailable. DATABASE_URL missing or connection failed.');
+    return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; set DATABASE_URL and ensure the server can reach the database, or enable a Supabase fallback.' });
+  }
   // Small body size and keys for debugging
   try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
 
   if (!pool) {
-    return res.status(503).json({ error: 'Database unavailable' });
+    console.warn('POST /api/checklists aborted: Postgres pool unavailable.');
+    return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; set DATABASE_URL and ensure the server can reach the database, or enable a Supabase fallback.' });
   }
 
   let client;
@@ -727,4 +734,22 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err && err.stack ? err.stack : err);
   if (res.headersSent) return next(err);
   res.status((err && err.status) || 500).json({ error: (err && err.message) || 'Server error' });
+});
+
+// DB debug endpoint - guarded by DEBUG_API_ERRORS
+app.get('/api/debug/db', async (req, res) => {
+  if (process.env.DEBUG_API_ERRORS !== 'true') return res.status(404).json({ error: 'Not found' });
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: false, message: 'DATABASE_URL not set', pool: !!pool });
+  }
+  if (!pool) {
+    return res.json({ ok: false, message: 'Pool exists false - pool initialization failed', pool: false });
+  }
+  try {
+    const result = await pool.query('SELECT 1 as ok');
+    return res.json({ ok: true, result: result?.rows?.[0] ?? null });
+  } catch (err) {
+    console.error('DB debug query failed:', err.message || err);
+    return res.json({ ok: false, error: err.message || err, pool: true });
+  }
 });
