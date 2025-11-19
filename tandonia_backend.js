@@ -166,6 +166,12 @@ app.use((req, res, next) => {
     const origin = req.headers.origin || 'no-origin';
     const isAllowed = allowed.indexOf(origin) !== -1;
     const authHeaderPresent = typeof req.headers.authorization === 'string';
+    // show short obfuscated token info for debugging (do not print token value)
+    const headerVal = req.headers.authorization || '';
+    const headerParts = headerVal.split(' ');
+    const scheme = headerParts[0] || 'none';
+    const tokenLen = headerParts[1] ? headerParts[1].length : 0;
+    console.debug(`Auth header scheme=${scheme} tokenLen=${tokenLen}`);
     console.debug(`Incoming request: ${req.method} ${req.path} origin=${origin} allowed=${isAllowed} auth=${authHeaderPresent}`);
   } catch (e) {
     // ignore logging failures
@@ -666,6 +672,27 @@ app.get('/api/species', async (req, res) => {
 // Health check (lightweight, doesn't require DB)
 app.get('/health', (req, res) => {
   res.json({ ok: true, uptime_seconds: process.uptime() });
+});
+
+// Debugging endpoint: show request headers and token validation when DEBUG_API_ERRORS=true
+app.get('/api/debug/headers', async (req, res) => {
+  if (process.env.DEBUG_API_ERRORS !== 'true') return res.status(404).json({ error: 'Not found' });
+  const origin = req.headers.origin || null;
+  const isAllowed = origin && allowed.indexOf(origin) !== -1;
+  const auth = req.headers.authorization || '';
+  const parts = auth.split(' ');
+  const scheme = parts[0] || null;
+  const tokenLen = parts[1] ? parts[1].length : 0;
+  let validatedUser = null;
+  if (parts[1] && supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin.auth.getUser(parts[1]);
+      if (!error && data?.user) validatedUser = { id: data.user.id, email: data.user.email };
+    } catch (err) {
+      // ignore
+    }
+  }
+  res.json({ origin, isAllowed, scheme, tokenLen, validatedUser });
 });
 
 // Export for Vercel serverless

@@ -126,7 +126,10 @@ const useAuth = () => {
     const supabase = getSupabaseClient();
     if (!supabase) return null;
     const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token ?? null;
+    const token = data?.session?.access_token ?? null;
+    // DEBUG: show whether a token was found (do not log token value)
+    try { console.debug('getAccessToken token present:', !!token, 'length:', token ? token.length : 0); } catch (e) {}
+    return token;
   };
 
   return { user, login, logout, register, loading, getAccessToken };
@@ -1374,6 +1377,14 @@ const ChecklistPage = ({ user }: any) => {
     try {
       // Get access token from Auth context (provided by App)
       const token = auth && auth.getAccessToken ? await auth.getAccessToken() : null;
+
+      // Client-side check: ensure we have a token before submitting and give helpful guidance
+      if (!token) {
+        console.error('Checklist submit failed: no access token present. Please login again.');
+        alert('No access token found — please log out and login again (or try refreshing the page).');
+        return;
+      }
+      try { console.debug('Submitting checklist with token length:', token ? token.length : 0); } catch (_) {}
       
       const response = await fetch(`${API_BASE}/api/checklists`, {
         method: 'POST',
