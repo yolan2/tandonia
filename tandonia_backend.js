@@ -471,14 +471,14 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
     // If Supabase admin client is configured, try to insert a simplified checklist fallback
     if (supabaseAdmin) {
       try {
+        // Supabase fallback: only insert basic checklist fields that exist in the schema.
+        // Some schemas store geometry columns (forest/urban/swamp) or separate checklist_locations,
+        // which cannot be set via a simple `insert` call — such inserts would need RPC/SQL.
         const payload = {
           user_id: userId,
           grid_cell_id: gridCellId,
           time_spent_minutes: timeSpent,
-          submitted_at: new Date().toISOString(),
-          // fallback: keep locations & species as JSON in a `metadata` or `locations` JSONB column
-          locations: normalizedLocations,
-          species: species
+          submitted_at: new Date().toISOString()
         };
 
         console.debug('Supabase fallback insert: payload keys:', Object.keys(payload));
@@ -491,7 +491,39 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
         // If insert returns inserted row id use it; otherwise return a success hint
         const insertedId = Array.isArray(data) && data.length ? data[0].id : null;
         console.debug('Supabase fallback insert success, id:', insertedId);
-        return res.json({ success: true, checklistId: insertedId, message: 'Checklist stored via Supabase fallback' });
+
+        // Insert species observations (if any) as separate rows in species_observations
+        try {
+          const speciesRows = [];
+          for (const [speciesName, count] of Object.entries(species || {})) {
+            const numericCount = Number(count || 0);
+            if (numericCount > 0) {
+              speciesRows.push({ checklist_id: insertedId, species_name: String(speciesName), count: numericCount });
+            }
+          }
+          if (speciesRows.length) {
+            const { data: speciesData, error: speciesErr } = await supabaseAdmin.from('species_observations').insert(speciesRows).select();
+            if (speciesErr) {
+              console.warn('Supabase fallback species insert failed:', speciesErr.message || speciesErr);
+            } else {
+              console.debug('Supabase fallback species insert succeeded, rows:', speciesData?.length ?? speciesRows.length);
+            }
+          }
+        } catch (err2) {
+          console.warn('Supabase fallback species insert exception:', err2.message || err2);
+        }
+
+        // Locations may require PostGIS geometry insert (ST_SetSRID). We cannot reliably insert them
+        // without a SQL/RPC endpoint that sets geom using PostGIS functions. Therefore we only log them
+        // so they can optionally be re-imported later, and inform the client that locations weren't stored.
+        if (normalizedLocations && (normalizedLocations.forest || normalizedLocations.urban || normalizedLocations.swamp)) {
+          console.debug('Supabase fallback: locations present but not stored due to PostGIS requirements:', Object.keys(normalizedLocations));
+        }
+        const fallbackMsgParts = ['Checklist stored via Supabase fallback'];
+        if (normalizedLocations && (normalizedLocations.forest || normalizedLocations.urban || normalizedLocations.swamp)) {
+          fallbackMsgParts.push('locations not stored due to PostGIS requirements');
+        }
+        return res.json({ success: true, checklistId: insertedId, message: fallbackMsgParts.join(' — ') });
       } catch (err) {
         console.error('Supabase fallback exception:', err.message || err);
         return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; supabase fallback failed due to an exception' });
