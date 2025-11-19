@@ -1397,8 +1397,15 @@ const ChecklistPage = ({ user }: any) => {
       });
       
       if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        throw new Error(text || `Submission failed (${response.status})`);
+        // Try to parse server JSON for better error details, fallback to text
+        let msg = '';
+        try {
+          const errJson = await response.json();
+          msg = errJson?.error || errJson?.message || errJson?.hint || errJson?.detail || JSON.stringify(errJson);
+        } catch (e) {
+          msg = await response.text().catch(() => '');
+        }
+        throw new Error(msg || `Submission failed (${response.status})`);
       }
 
       const json = await response.json().catch(() => null);

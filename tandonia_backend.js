@@ -203,6 +203,7 @@ const initializePostgresPool = () => {
       pool = null;
     });
 
+    console.debug('Postgres pool initialized');
     return candidate;
   } catch (err) {
     console.warn('Postgres pool initialization failed:', err.message);
@@ -445,6 +446,26 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
   console.debug('POST /api/checklists invoked, origin:', req.headers.origin || 'no-origin', 'user:', req.user && req.user.id ? req.user.id : 'anonymous');
   try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
 
+  // Extract and normalize incoming checklist fields early so they are available for the Supabase fallback
+  const { gridCellId, locations = {}, species = {}, timeSpent } = req.body || {};
+  const normalizedLocations = { ...locations };
+  if (!normalizedLocations.anthropogenous && normalizedLocations.urban) {
+    normalizedLocations.anthropogenous = normalizedLocations.urban;
+  }
+  const userId = req.user && req.user.id;
+
+  // Basic validation for required fields — give early helpful messages
+  if (!userId) {
+    console.warn('authenticateToken passed but req.user.id missing for checklist submit');
+    return res.status(401).json({ error: 'Unauthorized', hint: 'Missing authenticated user id' });
+  }
+  if (!gridCellId) {
+    return res.status(400).json({ error: 'Bad Request', hint: 'gridCellId is required' });
+  }
+  if (!timeSpent || Number.isNaN(Number(timeSpent))) {
+    return res.status(400).json({ error: 'Bad Request', hint: 'timeSpent is required and must be a number' });
+  }
+
   if (!pool) {
     console.warn('POST /api/checklists: Postgres pool unavailable. Attempting Supabase fallback if available.');
     // If Supabase admin client is configured, try to insert a simplified checklist fallback
@@ -469,6 +490,7 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
         }
         // If insert returns inserted row id use it; otherwise return a success hint
         const insertedId = Array.isArray(data) && data.length ? data[0].id : null;
+        console.debug('Supabase fallback insert success, id:', insertedId);
         return res.json({ success: true, checklistId: insertedId, message: 'Checklist stored via Supabase fallback' });
       } catch (err) {
         console.error('Supabase fallback exception:', err.message || err);
@@ -499,12 +521,8 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const { gridCellId, locations = {}, species, timeSpent } = req.body;
-    const normalizedLocations = { ...locations };
-    if (!normalizedLocations.anthropogenous && normalizedLocations.urban) {
-      normalizedLocations.anthropogenous = normalizedLocations.urban;
-    }
-    const userId = req.user.id;
+    // `gridCellId`, `locations`, `species`, `timeSpent`, `normalizedLocations` and `userId`
+    // were declared earlier before the pool check. Use those instead of redeclaring.
 
     const checklistResult = await client.query(`
       INSERT INTO checklists (user_id, grid_cell_id, time_spent_minutes, submitted_at)
