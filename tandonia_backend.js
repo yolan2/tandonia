@@ -136,8 +136,10 @@ app.use(express.json());
 const allowed = [
   'https://www.tandonia.be',
   'https://tandonia.be',
-  'http://localhost:3000'
-];
+  'http://localhost:3000',
+  // Optionally set FRONTEND_URL in environment for staging/preview domains
+  process.env.FRONTEND_URL || process.env.VITE_FRONTEND_URL || ''
+].filter(Boolean);
 
 // dynamic origin check
 app.use(cors({
@@ -157,6 +159,19 @@ app.use(cors({
 
 // ensure preflight allowed
 app.options('*', cors());
+
+// Debugging: log all incoming requests' origin & method, but avoid printing sensitive headers
+app.use((req, res, next) => {
+  try {
+    const origin = req.headers.origin || 'no-origin';
+    const isAllowed = allowed.indexOf(origin) !== -1;
+    const authHeaderPresent = typeof req.headers.authorization === 'string';
+    console.debug(`Incoming request: ${req.method} ${req.path} origin=${origin} allowed=${isAllowed} auth=${authHeaderPresent}`);
+  } catch (e) {
+    // ignore logging failures
+  }
+  next();
+});
 
 // Database connection
 let pool = null;
@@ -200,6 +215,7 @@ const authenticateToken = async (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
+    console.debug('authenticateToken: No token provided; origin:', req.headers.origin || 'no-origin');
     return res.status(401).json({ error: 'No token provided' });
   }
 
@@ -208,6 +224,7 @@ const authenticateToken = async (req, res, next) => {
     try {
       const { data, error } = await supabaseAdmin.auth.getUser(token);
       if (error || !data?.user) {
+        console.debug('authenticateToken: supabase verification failed; origin:', req.headers.origin || 'no-origin');
         return res.status(403).json({ error: 'Invalid token' });
       }
       req.user = { id: data.user.id, email: data.user.email };
@@ -224,6 +241,7 @@ const authenticateToken = async (req, res, next) => {
     req.user = user;
     return next();
   } catch (err) {
+    console.debug('authenticateToken: local jwt verify failed', err.message);
     return res.status(403).json({ error: 'Invalid token' });
   }
 };
@@ -418,6 +436,10 @@ app.get('/api/grid-cells', async (req, res) => {
 
 // Submit checklist
 app.post('/api/checklists', authenticateToken, async (req, res) => {
+  console.debug('POST /api/checklists invoked, origin:', req.headers.origin || 'no-origin', 'user:', req.user && req.user.id ? req.user.id : 'anonymous');
+  // Small body size and keys for debugging
+  try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
+
   if (!pool) {
     return res.status(503).json({ error: 'Database unavailable' });
   }

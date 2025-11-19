@@ -1384,7 +1384,10 @@ const ChecklistPage = ({ user }: any) => {
         body: JSON.stringify(checklistData)
       });
       
-      if (!response.ok) throw new Error('Submission failed');
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `Submission failed (${response.status})`);
+      }
       
       setSubmitted(true);
       setTimeout(() => {
