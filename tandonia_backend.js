@@ -516,12 +516,10 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
           user_id: userId,
           grid_cell_id: gridCellId,
           time_spent_minutes: Number(timeSpent),
-          submitted_at: new Date().toISOString(),
-          locations: normalizedLocations,
-          species: species
+          submitted_at: new Date().toISOString()
         };
 
-        console.debug('Supabase fallback insert: payload keys:', Object.keys(payload));
+        console.debug('Supabase fallback insert (simple, no locations/species in payload)');
 
         const { data, error } = await supabaseAdmin.from('checklists').insert(payload).select();
         if (error) {
@@ -583,14 +581,8 @@ app.post('/api/checklists', authenticateToken, async (req, res) => {
     console.warn('POST /api/checklists aborted: neither Postgres pool nor Supabase admin client are available.');
     return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; set DATABASE_URL and ensure the server can reach the database, or set SUPABASE_SERVICE_ROLE_KEY to enable a fallback.' });
   }
-  // Small body size and keys for debugging
-  try { console.debug('Checklist body keys:', Object.keys(req.body || {}).join(',')); } catch (e) {}
 
-  if (!pool) {
-    console.warn('POST /api/checklists aborted: Postgres pool unavailable.');
-    return res.status(503).json({ error: 'Database unavailable', hint: 'Postgres disabled; set DATABASE_URL and ensure the server can reach the database, or enable a Supabase fallback.' });
-  }
-
+  // Postgres pool path
   let client;
   try {
     client = await pool.connect();
