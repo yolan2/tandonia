@@ -340,9 +340,35 @@ const PillClamsIdentificationPage = () => {
     return () => { mounted = false; };
   }, []);
 
-  const normalize = (value: any) => {
+  const normalize = (value: any, key: string) => {
     if (typeof value === 'string') {
       value = value.toLowerCase();
+      // Handle specific keys
+      if (key === "c4_shape") {
+        if (value.includes("straight") || value.includes("slightly")) return "yes";
+        return "no";
+      }
+      if (key === "c2_shape") {
+        if (value.includes("strong")) return "yes";
+        return "no";
+      }
+      if (key === "striation_regular") {
+        if (value.includes("regular")) return "yes";
+        return "no";
+      }
+      if (key === "ligament_long") {
+        if (value.includes("long")) return "yes";
+        return "no";
+      }
+      if (key === "umbo_taal") {
+        if (value.includes("clearly")) return "yes";
+        return "no";
+      }
+      if (key === "ligamentpit_shape") {
+        if (value.includes("curved")) return "yes";
+        return "no";
+      }
+      // For yes/no questions
       if (value.includes("not") || value === "no" || value === "0") return "no";
       if (value === "yes" || value === "1" || value === "present") return "yes";
     }
@@ -367,7 +393,7 @@ const PillClamsIdentificationPage = () => {
       questions.every(q => {
         // Treat unanswered questions as 'unknown' so partial quizzes work
         const a = finalAnswers[q.key] ?? 'unknown';
-        const t = normalize((s as any)[q.key]);
+        const t = normalize((s as any)[q.key], q.key);
         return a === 'unknown' || t === 'unknown' || a === t;
       })
     );
@@ -384,10 +410,10 @@ const PillClamsIdentificationPage = () => {
 
   const question = questions[current];
   const yesList = question ? species.filter(s =>
-    normalize((s as any)[question.key]) === "yes" && s.image && s.image !== "no image"
+    normalize((s as any)[question.key], question.key) === "yes" && s.image && s.image !== "no image"
   ) : [];
   const noList = question ? species.filter(s =>
-    normalize((s as any)[question.key]) === "no" && s.image && s.image !== "no image"
+    normalize((s as any)[question.key], question.key) === "no" && s.image && s.image !== "no image"
   ) : [];
 
   return (
