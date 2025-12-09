@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' https://www.tandonia.be https://api.tandonia.be; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.tandonia.be https://*.supabase.co; frame-ancestors 'none';"
+        }
+      ]
+    }
+  ]
+}
