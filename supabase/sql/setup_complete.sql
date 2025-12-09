@@ -1,6 +1,40 @@
 -- Complete Supabase setup for Tandonia checklist system
 -- Run this entire file in your Supabase SQL Editor (or via CLI)
--- This will: enable PostGIS, create the RPC function, and apply RLS policies
+-- This will: create tables, enable PostGIS, create the RPC function, and apply RLS policies
+
+-- ============= 0. Create Tables =============
+
+-- Create checklists table
+CREATE TABLE IF NOT EXISTS public.checklists (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL,
+  grid_cell_id TEXT NOT NULL,
+  time_spent_minutes INTEGER,
+  submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create species_observations table
+CREATE TABLE IF NOT EXISTS public.species_observations (
+  id SERIAL PRIMARY KEY,
+  checklist_id INTEGER NOT NULL REFERENCES public.checklists(id) ON DELETE CASCADE,
+  species_name TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0
+);
+
+-- Create checklist_locations table with PostGIS geometry
+CREATE TABLE IF NOT EXISTS public.checklist_locations (
+  id SERIAL PRIMARY KEY,
+  checklist_id INTEGER NOT NULL REFERENCES public.checklists(id) ON DELETE CASCADE,
+  location_type TEXT NOT NULL,
+  geom GEOMETRY(Point, 31370) NOT NULL
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_checklists_user_id ON public.checklists(user_id);
+CREATE INDEX IF NOT EXISTS idx_checklists_grid_cell_id ON public.checklists(grid_cell_id);
+CREATE INDEX IF NOT EXISTS idx_species_observations_checklist_id ON public.species_observations(checklist_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_locations_checklist_id ON public.checklist_locations(checklist_id);
+CREATE INDEX IF NOT EXISTS idx_checklist_locations_geom ON public.checklist_locations USING GIST(geom);
 
 -- ============= 1. Enable PostGIS Extension =============
 CREATE EXTENSION IF NOT EXISTS postgis;
@@ -89,7 +123,7 @@ ALTER TABLE IF EXISTS public.species_observations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.checklist_locations ENABLE ROW LEVEL SECURITY;
 
 -- CHECKLISTS policies: users can only insert/select/update/delete their own checklists
-CREATE POLICY IF NOT EXISTS checklists_insert_policy ON public.checklists
+CREATE POLICY checklists_insert_policy ON public.checklists
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -98,24 +132,24 @@ CREATE POLICY IF NOT EXISTS checklists_insert_policy ON public.checklists
     (time_spent_minutes IS NULL OR time_spent_minutes >= 0)
   );
 
-CREATE POLICY IF NOT EXISTS checklists_select_policy ON public.checklists
+CREATE POLICY checklists_select_policy ON public.checklists
   FOR SELECT
   TO authenticated
   USING (user_id = auth.uid()::uuid);
 
-CREATE POLICY IF NOT EXISTS checklists_update_policy ON public.checklists
+CREATE POLICY checklists_update_policy ON public.checklists
   FOR UPDATE
   TO authenticated
   USING (user_id = auth.uid()::uuid)
   WITH CHECK (user_id = auth.uid()::uuid);
 
-CREATE POLICY IF NOT EXISTS checklists_delete_policy ON public.checklists
+CREATE POLICY checklists_delete_policy ON public.checklists
   FOR DELETE
   TO authenticated
   USING (user_id = auth.uid()::uuid);
 
 -- SPECIES_OBSERVATIONS policies: users can insert/select/update observations for their own checklists
-CREATE POLICY IF NOT EXISTS species_observations_insert_policy ON public.species_observations
+CREATE POLICY species_observations_insert_policy ON public.species_observations
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -126,7 +160,7 @@ CREATE POLICY IF NOT EXISTS species_observations_insert_policy ON public.species
     )
   );
 
-CREATE POLICY IF NOT EXISTS species_observations_select_policy ON public.species_observations
+CREATE POLICY species_observations_select_policy ON public.species_observations
   FOR SELECT
   TO authenticated
   USING (
@@ -137,7 +171,7 @@ CREATE POLICY IF NOT EXISTS species_observations_select_policy ON public.species
     )
   );
 
-CREATE POLICY IF NOT EXISTS species_observations_update_policy ON public.species_observations
+CREATE POLICY species_observations_update_policy ON public.species_observations
   FOR UPDATE
   TO authenticated
   USING (
@@ -156,7 +190,7 @@ CREATE POLICY IF NOT EXISTS species_observations_update_policy ON public.species
   );
 
 -- CHECKLIST_LOCATIONS policies: users can insert/select/update locations for their own checklists
-CREATE POLICY IF NOT EXISTS checklist_locations_insert_policy ON public.checklist_locations
+CREATE POLICY checklist_locations_insert_policy ON public.checklist_locations
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -167,7 +201,7 @@ CREATE POLICY IF NOT EXISTS checklist_locations_insert_policy ON public.checklis
     )
   );
 
-CREATE POLICY IF NOT EXISTS checklist_locations_select_policy ON public.checklist_locations
+CREATE POLICY checklist_locations_select_policy ON public.checklist_locations
   FOR SELECT
   TO authenticated
   USING (
@@ -178,7 +212,7 @@ CREATE POLICY IF NOT EXISTS checklist_locations_select_policy ON public.checklis
     )
   );
 
-CREATE POLICY IF NOT EXISTS checklist_locations_update_policy ON public.checklist_locations
+CREATE POLICY checklist_locations_update_policy ON public.checklist_locations
   FOR UPDATE
   TO authenticated
   USING (
@@ -198,9 +232,10 @@ CREATE POLICY IF NOT EXISTS checklist_locations_update_policy ON public.checklis
 
 -- ============= Setup Complete =============
 -- Your Supabase database now has:
--- 1. PostGIS extension enabled
--- 2. insert_checklist RPC function (with SECURITY DEFINER, bypasses RLS when called via service role)
--- 3. RLS policies for checklists, species_observations, and checklist_locations
+-- 1. Checklist-related tables created
+-- 2. PostGIS extension enabled
+-- 3. insert_checklist RPC function (with SECURITY DEFINER, bypasses RLS when called via service role)
+-- 4. RLS policies for checklists, species_observations, and checklist_locations
 --
 -- Next steps:
 -- - Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in your backend environment

@@ -12,6 +12,14 @@ services:
         value: 'https://tandonia.be'
       - key: DEBUG_API_ERRORS
         value: 'true'
+      - key: SUPABASE_URL
+        value: 'https://rjqukensqljgyapjkuzo.supabase.co'
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: 'YOUR_SUPABASE_SERVICE_ROLE_KEY_HERE'
+      - key: DATABASE_URL
+        value: 'YOUR_DATABASE_URL_HERE'
+      - key: JWT_SECRET
+        value: 'YOUR_JWT_SECRET_HERE'
   - type: static
     name: tandonia-frontend
     env: static
