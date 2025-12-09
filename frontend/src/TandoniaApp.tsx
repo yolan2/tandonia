@@ -806,8 +806,9 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
         <div>
           {isRegister && (
             <div className="mb-4">
-              <label className="block text-gray-700 mb-2">{t('auth.name')}</label>
+              <label className="block text-gray-700 mb-2" htmlFor="auth-name">{t('auth.name')}</label>
               <input
+                id="auth-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -818,8 +819,9 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           )}
           
           <div className="mb-4">
-              <label className="block text-gray-700 mb-2">{t('auth.email')}</label>
+              <label className="block text-gray-700 mb-2" htmlFor="auth-email">{t('auth.email')}</label>
             <input
+              id="auth-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -829,8 +831,9 @@ const LoginModal = ({ onClose, onLogin, onRegister }: any) => {
           </div>
           
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2">{t('auth.password')}</label>
+            <label className="block text-gray-700 mb-2" htmlFor="auth-password">{t('auth.password')}</label>
             <input
+              id="auth-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -891,16 +894,16 @@ const LoginPage = ({ onSuccess }: any) => {
         {error && <div className="notification is-danger">{error}</div>}
 
         <div className="field">
-          <label className="label">{t('auth.email')}</label>
+          <label className="label" htmlFor="login-email">{t('auth.email')}</label>
           <div className="control">
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="login-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
         </div>
 
         <div className="field">
-          <label className="label">{t('auth.password')}</label>
+          <label className="label" htmlFor="login-password">{t('auth.password')}</label>
           <div className="control">
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input id="login-password" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         </div>
 
@@ -953,23 +956,23 @@ const RegisterPage = ({ onSuccess }: any) => {
         )}
 
         <div className="field">
-          <label className="label">{t('auth.name')}</label>
+          <label className="label" htmlFor="register-name">{t('auth.name')}</label>
           <div className="control">
-            <input className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} />
+            <input id="register-name" className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
         </div>
 
         <div className="field">
-          <label className="label">{t('auth.email')}</label>
+          <label className="label" htmlFor="register-email">{t('auth.email')}</label>
           <div className="control">
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="register-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
         </div>
 
         <div className="field">
-          <label className="label">{t('auth.password')}</label>
+          <label className="label" htmlFor="register-password">{t('auth.password')}</label>
           <div className="control">
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input id="register-password" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         </div>
 
